@@ -46,7 +46,12 @@
         const { initializeApp } = await import(
           "https://www.gstatic.com/firebasejs/9.6.10/firebase-app.js"
         );
-        const { getAuth, signInWithPopup, GoogleAuthProvider } = await import(
+        const {
+          getAuth,
+          signInWithRedirect,
+          getRedirectResult,
+          GoogleAuthProvider,
+        } = await import(
           "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"
         );
 
@@ -58,8 +63,13 @@
         const googleSignInBtn = document.getElementById("googleSignInBtn");
         googleSignInBtn.addEventListener("click", () => {
           const provider = new GoogleAuthProvider();
-          signInWithPopup(auth, provider)
-            .then((result) => {
+          signInWithRedirect(auth, provider);
+        });
+
+        // Handle the redirect result
+        getRedirectResult(auth)
+          .then((result) => {
+            if (result) {
               const user = result.user;
               localStorage.setItem("userEmail", user.email);
               // Check if the user already has a team
@@ -78,12 +88,12 @@
                   console.error("Error checking team:", error);
                   alert("Error checking team. Please try again.");
                 });
-            })
-            .catch((error) => {
-              console.error(error);
-              alert(`Error: ${error.message}`);
-            });
-        });
+            }
+          })
+          .catch((error) => {
+            console.error("Authentication error:", error);
+            alert(`Error: ${error.message}`);
+          });
       }
 
       initializeAppAndAuth();
