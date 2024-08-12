@@ -1,411 +1,442 @@
 <!DOCTYPE html>
 <html>
-<head>
-  <title>Spotify Artist Search</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      background-color: #f5f5f5;
-      margin: 0;
-      padding: 0;
-      display: flex;
-      justify-content: center;
-      align-items: flex-start;
-      flex-direction: column;
-      min-height: 100vh;
-    }
-    .container {
-      background-color: white;
-      padding: 20px;
-      border-radius: 8px;
-      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-      width: 100%;
-      max-width: 100%;
-      text-align: center;
-      margin-top: 20px;
-      flex: 1;
-    }
-    .header {
-      background-color: #1DB954;
-      color: white;
-      padding: 10px;
-      border-radius: 8px 8px 0 0;
-      margin-bottom: 20px;
-    }
-    .btn {
-      padding: 10px 20px;
-      background-color: #1DB954;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-    }
-    .search-bar {
-      padding: 10px;
-      width: 200px;
-      margin-bottom: 10px;
-    }
-    .results {
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      margin-bottom: 20px;
-    }
-    .artist-result {
-      display: flex;
-      align-items: center;
-      cursor: pointer;
-      margin: 5px 0;
-      padding: 5px;
-      border: 1px solid #ccc;
-      width: 300px;
-      transition: background-color 0.3s;
-    }
-    .artist-result:hover {
-      background-color: #f0f0f0;
-    }
-    .artist-image {
-      width: 50px;
-      height: 50px;
-      margin-right: 10px;
-    }
-    .roster {
-      display: flex;
-      justify-content: center;
-      flex-wrap: wrap;
-      margin-top: 20px;
-    }
-    .roster-slot {
-      width: 150px;
-      height: 150px;
-      border: 1px solid #ccc;
-      margin: 10px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      text-align: center;
-      font-size: 14px;
-      border-radius: 4px;
-    }
-    .remove-btn {
-      background-color: #f44336;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      margin-top: 10px;
-      padding: 5px;
-    }
-    .loading-message {
-      display: none;
-      margin-top: 20px;
-      color: #555;
-    }
-    .error-message {
-      color: red;
-      margin-top: 20px;
-    }
-    .rules {
-      text-align: left;
-      margin-top: 20px;
-      background-color: #f9f9f9;
-      padding: 10px;
-      border-radius: 4px;
-      border: 1px solid #ccc;
-    }
-    .back-to-top {
-      position: fixed;
-      bottom: 20px;
-      right: 20px;
-      padding: 10px 20px;
-      background-color: #1DB954;
-      color: white;
-      border: none;
-      border-radius: 4px;
-      cursor: pointer;
-      display: none;
-      z-index: 1000;
-    }
-  </style>
-</head>
-<body>
-  <div class="container">
-    <div class="header">
-      <h1>Build Your Artist Roster</h1>
-    </div>
-    <div class="rules">
-      <h2>Team Rules:</h2>
-      <ul>
-        <li>Each artist must have more than 500 monthly listeners.</li>
-        <li>Artists must fit into the appropriate slot based on their monthly listeners:</li>
+  <head>
+    <title>Spotify Artist Search</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: flex-start;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 100%;
+        text-align: center;
+        margin-top: 20px;
+        flex: 1;
+      }
+      .header {
+        background-color: #1db954;
+        color: white;
+        padding: 10px;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: 20px;
+      }
+      .btn {
+        padding: 10px 20px;
+        background-color: #1db954;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .search-bar {
+        padding: 10px;
+        width: 200px;
+        margin-bottom: 10px;
+      }
+      .results {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        margin-bottom: 20px;
+      }
+      .artist-result {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        margin: 5px 0;
+        padding: 5px;
+        border: 1px solid #ccc;
+        width: 300px;
+        transition: background-color 0.3s;
+      }
+      .artist-result:hover {
+        background-color: #f0f0f0;
+      }
+      .artist-image {
+        width: 50px;
+        height: 50px;
+        margin-right: 10px;
+      }
+      .roster {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+      .roster-slot {
+        width: 150px;
+        height: 150px;
+        border: 1px solid #ccc;
+        margin: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 14px;
+        border-radius: 4px;
+      }
+      .remove-btn {
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
+        padding: 5px;
+      }
+      .loading-message {
+        display: none;
+        margin-top: 20px;
+        color: #555;
+      }
+      .error-message {
+        color: red;
+        margin-top: 20px;
+      }
+      .rules {
+        text-align: left;
+        margin-top: 20px;
+        background-color: #f9f9f9;
+        padding: 10px;
+        border-radius: 4px;
+        border: 1px solid #ccc;
+      }
+      .back-to-top {
+        position: fixed;
+        bottom: 20px;
+        right: 20px;
+        padding: 10px 20px;
+        background-color: #1db954;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        display: none;
+        z-index: 1000;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1>Build Your Artist Roster</h1>
+      </div>
+      <div class="rules">
+        <h2>Team Rules:</h2>
         <ul>
-          <li>&lt; 100k: Less than 100,000 monthly listeners</li>
-          <li>&lt; 250k: Less than 250,000 monthly listeners</li>
-          <li>&lt; 1M: Less than 1,000,000 monthly listeners</li>
+          <li>Each artist must have more than 500 monthly listeners.</li>
+          <li>
+            Artists must fit into the appropriate slot based on their monthly
+            listeners:
+          </li>
+          <ul>
+            <li>&lt; 100k: Less than 100,000 monthly listeners</li>
+            <li>&lt; 250k: Less than 250,000 monthly listeners</li>
+            <li>&lt; 1M: Less than 1,000,000 monthly listeners</li>
+          </ul>
+          <li>No duplicate artists in the same team.</li>
+          <li>All slots must be filled before submitting the team.</li>
+          <li>A team name must be provided before submitting the team.</li>
+          <li>Refer to monthly listener counts on the Spotify app.</li>
         </ul>
-        <li>No duplicate artists in the same team.</li>
-        <li>All slots must be filled before submitting the team.</li>
-        <li>A team name must be provided before submitting the team.</li>
-        <li>Refer to monthly listener counts on the Spotify app.</li>
-      </ul>
+      </div>
+      <input
+        type="text"
+        id="searchInput"
+        class="search-bar"
+        placeholder="Enter artist name"
+      />
+      <button class="btn" id="searchBtn">Search</button>
+      <div id="searchResults" class="results"></div>
+      <div class="roster">
+        <div class="roster-slot" id="slot100k">< 100k</div>
+        <div class="roster-slot" id="slot250k1">< 250k</div>
+        <div class="roster-slot" id="slot250k2">< 250k</div>
+        <div class="roster-slot" id="slot250k3">< 250k</div>
+        <div class="roster-slot" id="slot1M">< 1M</div>
+      </div>
+      <input type="text" id="teamNameInput" placeholder="Enter team name" />
+      <button class="btn" id="submitBtn">Submit</button>
+      <div id="loadingMessage" class="loading-message">
+        Please wait, validating your roster...
+      </div>
+      <div id="errorMessage" class="error-message"></div>
     </div>
-    <input type="text" id="searchInput" class="search-bar" placeholder="Enter artist name">
-    <button class="btn" id="searchBtn">Search</button>
-    <div id="searchResults" class="results"></div>
-    <div class="roster">
-      <div class="roster-slot" id="slot100k">< 100k</div>
-      <div class="roster-slot" id="slot250k1">< 250k</div>
-      <div class="roster-slot" id="slot250k2">< 250k</div>
-      <div class="roster-slot" id="slot250k3">< 250k</div>
-      <div class="roster-slot" id="slot1M">< 1M</div>
-    </div>
-    <input type="text" id="teamNameInput" placeholder="Enter team name">
-    <button class="btn" id="submitBtn">Submit</button>
-    <div id="loadingMessage" class="loading-message">Please wait, validating your roster...</div>
-    <div id="errorMessage" class="error-message"></div>
-  </div>
-  <button class="back-to-top" id="backToTopBtn">Back to Top</button>
+    <button class="back-to-top" id="backToTopBtn">Back to Top</button>
 
-  <script>
-    const searchBtn = document.getElementById('searchBtn');
-    const searchInput = document.getElementById('searchInput');
-    const searchResults = document.getElementById('searchResults');
-    const submitBtn = document.getElementById('submitBtn');
-    const teamNameInput = document.getElementById('teamNameInput');
-    const loadingMessage = document.getElementById('loadingMessage');
-    const errorMessage = document.getElementById('errorMessage');
-    const backToTopBtn = document.getElementById('backToTopBtn');
+    <script>
+      const searchBtn = document.getElementById("searchBtn");
+      const searchInput = document.getElementById("searchInput");
+      const searchResults = document.getElementById("searchResults");
+      const submitBtn = document.getElementById("submitBtn");
+      const teamNameInput = document.getElementById("teamNameInput");
+      const loadingMessage = document.getElementById("loadingMessage");
+      const errorMessage = document.getElementById("errorMessage");
+      const backToTopBtn = document.getElementById("backToTopBtn");
 
-    const slots = {
-      slot100k: document.getElementById('slot100k'),
-      slot250k1: document.getElementById('slot250k1'),
-      slot250k2: document.getElementById('slot250k2'),
-      slot250k3: document.getElementById('slot250k3'),
-      slot1M: document.getElementById('slot1M')
-    };
+      const slots = {
+        slot100k: document.getElementById("slot100k"),
+        slot250k1: document.getElementById("slot250k1"),
+        slot250k2: document.getElementById("slot250k2"),
+        slot250k3: document.getElementById("slot250k3"),
+        slot1M: document.getElementById("slot1M"),
+      };
 
-    function searchArtists() {
-      const query = searchInput.value;
-      fetch('/token')
-        .then(response => response.json())
-        .then(tokenData => {
-          const accessToken = tokenData.access_token;
-          return fetch(`https://api.spotify.com/v1/search?q=${query}&type=artist`, {
-            headers: {
-              'Authorization': `Bearer ${accessToken}`
-            }
+      function searchArtists() {
+        const query = searchInput.value;
+        fetch(
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
+        )
+          .then((response) => response.json())
+          .then((tokenData) => {
+            const accessToken = tokenData.access_token;
+            return fetch(
+              `https://api.spotify.com/v1/search?q=${query}&type=artist`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            );
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            displayResults(data);
+          })
+          .catch((error) => {
+            console.error("Error fetching data:", error);
           });
-        })
-        .then(response => response.json())
-        .then(data => {
-          displayResults(data);
-        })
-        .catch(error => {
-          console.error('Error fetching data:', error);
-        });
-    }
-
-    searchBtn.addEventListener('click', searchArtists);
-    searchInput.addEventListener('keydown', (event) => {
-      if (event.key === 'Enter') {
-        searchArtists();
-      }
-    });
-
-    function displayResults(data) {
-      searchResults.innerHTML = '';
-      const artists = data.artists.items.slice(0, 5); // Limit to 5 results
-      artists.forEach(artist => {
-        const artistElement = document.createElement('div');
-        artistElement.classList.add('artist-result');
-        
-        const artistImage = document.createElement('img');
-        artistImage.classList.add('artist-image');
-        artistImage.src = artist.images[0] ? artist.images[0].url : 'https://via.placeholder.com/50';
-        artistElement.appendChild(artistImage);
-
-        const artistName = document.createElement('span');
-        artistName.textContent = artist.name;
-        artistElement.appendChild(artistName);
-
-        artistElement.addEventListener('click', () => addArtistToRoster(artist));
-        searchResults.appendChild(artistElement);
-      });
-    }
-
-    function addArtistToRoster(artist) {
-      const artistName = artist.name;
-      const artistImage = artist.images[0] ? artist.images[0].url : 'https://via.placeholder.com/50';
-      const artistLink = artist.external_urls.spotify;
-
-      // Check for duplicate artists
-      if (isDuplicateArtist(artistName)) {
-        showError('This artist is already in your roster.');
-        return;
       }
 
-      if (isSlotEmpty(slots.slot100k)) {
-        fillRosterSlot(slots.slot100k, artistName, artistImage, artistLink);
-      } else if (isSlotEmpty(slots.slot250k1)) {
-        fillRosterSlot(slots.slot250k1, artistName, artistImage, artistLink);
-      } else if (isSlotEmpty(slots.slot250k2)) {
-        fillRosterSlot(slots.slot250k2, artistName, artistImage, artistLink);
-      } else if (isSlotEmpty(slots.slot250k3)) {
-        fillRosterSlot(slots.slot250k3, artistName, artistImage, artistLink);
-      } else if (isSlotEmpty(slots.slot1M)) {
-        fillRosterSlot(slots.slot1M, artistName, artistImage, artistLink);
-      } else {
-        showError('All slots are full');
-      }
-    }
-
-    function isSlotEmpty(slot) {
-      return slot.querySelector('img') === null;
-    }
-
-    function isDuplicateArtist(artistName) {
-      return Object.values(slots).some(slot => {
-        const nameElem = slot.querySelector('div');
-        return nameElem && nameElem.textContent === artistName;
-      });
-    }
-
-    function fillRosterSlot(slot, artistName, artistImage, artistLink) {
-      slot.innerHTML = '';
-      const img = document.createElement('img');
-      img.src = artistImage;
-      img.style.width = '50px';
-      img.style.height = '50px';
-      slot.appendChild(img);
-
-      const name = document.createElement('div');
-      name.textContent = artistName;
-      name.setAttribute('data-link', artistLink); // Store the artist link
-      slot.appendChild(name);
-
-      const removeBtn = document.createElement('button');
-      removeBtn.textContent = 'Remove';
-      removeBtn.classList.add('remove-btn');
-      removeBtn.addEventListener('click', () => {
-        slot.innerHTML = slot.id.replace('slot', '< ');
-        hideError();
-      });
-      slot.appendChild(removeBtn);
-    }
-
-    function getArtistInfo(slot) {
-      const img = slot.querySelector('img');
-      const nameElem = slot.querySelector('div');
-      return {
-        imageUrl: img ? img.src : '',
-        name: nameElem ? nameElem.textContent : '',
-        link: nameElem ? nameElem.getAttribute('data-link') : '' // Get the artist link
-      };
-    }
-
-    function showError(message) {
-      errorMessage.textContent = message;
-      errorMessage.style.display = 'block';
-    }
-
-    function hideError() {
-      errorMessage.style.display = 'none';
-    }
-
-    function showLoadingMessage() {
-      loadingMessage.style.display = 'block';
-    }
-
-    function hideLoadingMessage() {
-      loadingMessage.style.display = 'none';
-    }
-
-    function submitRoster() {
-      hideError();
-      showLoadingMessage();
-
-      const teamName = teamNameInput.value.trim();
-      if (!teamName) {
-        hideLoadingMessage();
-        showError('Please enter a team name');
-        return;
-      }
-
-      fetch('/check-team-name?teamname=' + teamName)
-        .then(response => response.json())
-        .then(data => {
-          if (data.exists) {
-            hideLoadingMessage();
-            showError('This team name is already taken. Please choose a different name.');
-          } else {
-            proceedWithRosterSubmission(teamName);
-          }
-        })
-        .catch(error => {
-          hideLoadingMessage();
-          console.error('Error checking team name:', error);
-          showError('Error checking team name. Please try again.');
-        });
-    }
-
-    function proceedWithRosterSubmission(teamName) {
-      const artists = {
-        artist_100k: getArtistInfo(slots.slot100k),
-        artist_250k_1: getArtistInfo(slots.slot250k1),
-        artist_250k_2: getArtistInfo(slots.slot250k2),
-        artist_250k_3: getArtistInfo(slots.slot250k3),
-        artist_1m: getArtistInfo(slots.slot1M)
-      };
-
-      // Check if all slots are filled
-      const allSlotsFilled = Object.values(artists).every(artist => artist.name !== '' && artist.link !== '');
-
-      if (!allSlotsFilled) {
-        hideLoadingMessage();
-        showError('Please fill all the slots before submitting your team');
-        return;
-      }
-
-      const email = localStorage.getItem('userEmail');
-
-      fetch('/validate', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ email, teamname: teamName, artists })
-      })
-      .then(response => response.json())
-      .then(data => {
-        hideLoadingMessage();
-        if (data.status === 'success') {
-          window.location.href = 'roster.html';
-        } else {
-          showError(data.issues.map(issue => issue.message).join('\n'));
+      searchBtn.addEventListener("click", searchArtists);
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
+          searchArtists();
         }
-      })
-      .catch(error => {
-        hideLoadingMessage();
-        console.error('Error submitting roster:', error);
-        showError('Error submitting roster. Please try again.');
       });
-    }
 
-    submitBtn.addEventListener('click', submitRoster);
+      function displayResults(data) {
+        searchResults.innerHTML = "";
+        const artists = data.artists.items.slice(0, 5); // Limit to 5 results
+        artists.forEach((artist) => {
+          const artistElement = document.createElement("div");
+          artistElement.classList.add("artist-result");
 
-    // Back to Top functionality
-    window.addEventListener('scroll', () => {
-      if (window.scrollY > 200) {
-        backToTopBtn.style.display = 'block';
-      } else {
-        backToTopBtn.style.display = 'none';
+          const artistImage = document.createElement("img");
+          artistImage.classList.add("artist-image");
+          artistImage.src = artist.images[0]
+            ? artist.images[0].url
+            : "https://via.placeholder.com/50";
+          artistElement.appendChild(artistImage);
+
+          const artistName = document.createElement("span");
+          artistName.textContent = artist.name;
+          artistElement.appendChild(artistName);
+
+          artistElement.addEventListener("click", () =>
+            addArtistToRoster(artist)
+          );
+          searchResults.appendChild(artistElement);
+        });
       }
-    });
 
-    backToTopBtn.addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-  </script>
-</body>
+      function addArtistToRoster(artist) {
+        const artistName = artist.name;
+        const artistImage = artist.images[0]
+          ? artist.images[0].url
+          : "https://via.placeholder.com/50";
+        const artistLink = artist.external_urls.spotify;
+
+        // Check for duplicate artists
+        if (isDuplicateArtist(artistName)) {
+          showError("This artist is already in your roster.");
+          return;
+        }
+
+        if (isSlotEmpty(slots.slot100k)) {
+          fillRosterSlot(slots.slot100k, artistName, artistImage, artistLink);
+        } else if (isSlotEmpty(slots.slot250k1)) {
+          fillRosterSlot(slots.slot250k1, artistName, artistImage, artistLink);
+        } else if (isSlotEmpty(slots.slot250k2)) {
+          fillRosterSlot(slots.slot250k2, artistName, artistImage, artistLink);
+        } else if (isSlotEmpty(slots.slot250k3)) {
+          fillRosterSlot(slots.slot250k3, artistName, artistImage, artistLink);
+        } else if (isSlotEmpty(slots.slot1M)) {
+          fillRosterSlot(slots.slot1M, artistName, artistImage, artistLink);
+        } else {
+          showError("All slots are full");
+        }
+      }
+
+      function isSlotEmpty(slot) {
+        return slot.querySelector("img") === null;
+      }
+
+      function isDuplicateArtist(artistName) {
+        return Object.values(slots).some((slot) => {
+          const nameElem = slot.querySelector("div");
+          return nameElem && nameElem.textContent === artistName;
+        });
+      }
+
+      function fillRosterSlot(slot, artistName, artistImage, artistLink) {
+        slot.innerHTML = "";
+        const img = document.createElement("img");
+        img.src = artistImage;
+        img.style.width = "50px";
+        img.style.height = "50px";
+        slot.appendChild(img);
+
+        const name = document.createElement("div");
+        name.textContent = artistName;
+        name.setAttribute("data-link", artistLink); // Store the artist link
+        slot.appendChild(name);
+
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.classList.add("remove-btn");
+        removeBtn.addEventListener("click", () => {
+          slot.innerHTML = slot.id.replace("slot", "< ");
+          hideError();
+        });
+        slot.appendChild(removeBtn);
+      }
+
+      function getArtistInfo(slot) {
+        const img = slot.querySelector("img");
+        const nameElem = slot.querySelector("div");
+        return {
+          imageUrl: img ? img.src : "",
+          name: nameElem ? nameElem.textContent : "",
+          link: nameElem ? nameElem.getAttribute("data-link") : "", // Get the artist link
+        };
+      }
+
+      function showError(message) {
+        errorMessage.textContent = message;
+        errorMessage.style.display = "block";
+      }
+
+      function hideError() {
+        errorMessage.style.display = "none";
+      }
+
+      function showLoadingMessage() {
+        loadingMessage.style.display = "block";
+      }
+
+      function hideLoadingMessage() {
+        loadingMessage.style.display = "none";
+      }
+
+      function submitRoster() {
+        hideError();
+        showLoadingMessage();
+
+        const teamName = teamNameInput.value.trim();
+        if (!teamName) {
+          hideLoadingMessage();
+          showError("Please enter a team name");
+          return;
+        }
+
+        fetch(
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeamName?teamname=" +
+            teamName
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.exists) {
+              hideLoadingMessage();
+              showError(
+                "This team name is already taken. Please choose a different name."
+              );
+            } else {
+              proceedWithRosterSubmission(teamName);
+            }
+          })
+          .catch((error) => {
+            hideLoadingMessage();
+            console.error("Error checking team name:", error);
+            showError("Error checking team name. Please try again.");
+          });
+      }
+
+      function proceedWithRosterSubmission(teamName) {
+        const artists = {
+          artist_100k: getArtistInfo(slots.slot100k),
+          artist_250k_1: getArtistInfo(slots.slot250k1),
+          artist_250k_2: getArtistInfo(slots.slot250k2),
+          artist_250k_3: getArtistInfo(slots.slot250k3),
+          artist_1m: getArtistInfo(slots.slot1M),
+        };
+
+        // Check if all slots are filled
+        const allSlotsFilled = Object.values(artists).every(
+          (artist) => artist.name !== "" && artist.link !== ""
+        );
+
+        if (!allSlotsFilled) {
+          hideLoadingMessage();
+          showError("Please fill all the slots before submitting your team");
+          return;
+        }
+
+        const email = localStorage.getItem("userEmail");
+
+        fetch(
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validate",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ email, teamname: teamName, artists }),
+          }
+        )
+          .then((response) => response.json())
+          .then((data) => {
+            hideLoadingMessage();
+            if (data.status === "success") {
+              window.location.href = "roster.html";
+            } else {
+              showError(data.issues.map((issue) => issue.message).join("\n"));
+            }
+          })
+          .catch((error) => {
+            hideLoadingMessage();
+            console.error("Error submitting roster:", error);
+            showError("Error submitting roster. Please try again.");
+          });
+      }
+
+      submitBtn.addEventListener("click", submitRoster);
+
+      // Back to Top functionality
+      window.addEventListener("scroll", () => {
+        if (window.scrollY > 200) {
+          backToTopBtn.style.display = "block";
+        } else {
+          backToTopBtn.style.display = "none";
+        }
+      });
+
+      backToTopBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
+      });
+    </script>
+  </body>
 </html>

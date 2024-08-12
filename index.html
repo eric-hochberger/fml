@@ -63,7 +63,9 @@
               const user = result.user;
               localStorage.setItem("userEmail", user.email);
               // Check if the user already has a team
-              fetch(`/check-team?email=${user.email}`)
+              fetch(
+                `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${user.email}`
+              )
                 .then((response) => response.json())
                 .then((data) => {
                   if (data.hasTeam) {
