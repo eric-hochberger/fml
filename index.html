@@ -49,8 +49,8 @@
         const {
           getAuth,
           signInWithRedirect,
-          getRedirectResult,
           GoogleAuthProvider,
+          getRedirectResult,
         } = await import(
           "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js"
         );
@@ -63,15 +63,16 @@
         const googleSignInBtn = document.getElementById("googleSignInBtn");
         googleSignInBtn.addEventListener("click", () => {
           const provider = new GoogleAuthProvider();
-          signInWithRedirect(auth, provider);
+          signInWithRedirect(auth, provider); // This starts the redirect-based flow
         });
 
-        // Handle the redirect result
+        // Handle the redirect result after returning from the OAuth provider
         getRedirectResult(auth)
           .then((result) => {
             if (result) {
               const user = result.user;
               localStorage.setItem("userEmail", user.email);
+
               // Check if the user already has a team
               fetch(
                 `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${user.email}`
@@ -91,7 +92,7 @@
             }
           })
           .catch((error) => {
-            console.error("Authentication error:", error);
+            console.error(error);
             alert(`Error: ${error.message}`);
           });
       }
