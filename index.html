@@ -27,7 +27,9 @@
       // Function to fetch Firebase config from your Cloud Function
       async function fetchFirebaseConfig() {
         try {
-          const response = await fetch("/getFirebaseConfig");
+          const response = await fetch(
+            "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getFirebaseConfig"
+          );
           return await response.json();
         } catch (error) {
           console.error("Error fetching Firebase config:", error);
