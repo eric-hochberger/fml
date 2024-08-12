@@ -59,18 +59,12 @@
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
 
-        // Google Sign-In
-        const googleSignInBtn = document.getElementById("googleSignInBtn");
-        googleSignInBtn.addEventListener("click", () => {
-          const provider = new GoogleAuthProvider();
-          signInWithRedirect(auth, provider); // This starts the redirect-based flow
-        });
-
         // Handle the redirect result after returning from the OAuth provider
         getRedirectResult(auth)
           .then((result) => {
             if (result) {
               const user = result.user;
+              console.log("User signed in:", user); // Debugging line
               localStorage.setItem("userEmail", user.email);
 
               // Check if the user already has a team
@@ -89,12 +83,21 @@
                   console.error("Error checking team:", error);
                   alert("Error checking team. Please try again.");
                 });
+            } else {
+              console.log("No result from getRedirectResult"); // Debugging line
             }
           })
           .catch((error) => {
-            console.error(error);
+            console.error("Error in getRedirectResult:", error); // Debugging line
             alert(`Error: ${error.message}`);
           });
+
+        // Google Sign-In
+        const googleSignInBtn = document.getElementById("googleSignInBtn");
+        googleSignInBtn.addEventListener("click", () => {
+          const provider = new GoogleAuthProvider();
+          signInWithRedirect(auth, provider); // This starts the redirect-based flow
+        });
       }
 
       initializeAppAndAuth();
