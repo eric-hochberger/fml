@@ -1,0 +1,12 @@
+# Firebase and API keys
+.env
+functions/.runtimeconfig.json
+
+# Node.js dependencies
+node_modules/
+
+# Firebase credentials
+.firebase/
+
+/public/firebaseConfig.js
+

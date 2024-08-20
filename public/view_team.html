@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>View Team Roster</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 90%;
+        max-width: 800px;
+        text-align: center;
+      }
+      .header {
+        background-color: #1db954;
+        color: white;
+        padding: 10px;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: 20px;
+      }
+      .roster {
+        display: flex;
+        justify-content: center;
+        flex-wrap: wrap;
+        margin-top: 20px;
+      }
+      .roster-slot {
+        width: 150px;
+        height: 200px;
+        border: 1px solid #ccc;
+        margin: 10px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        text-align: center;
+        font-size: 14px;
+        border-radius: 4px;
+        padding: 10px;
+      }
+      .artist-image {
+        width: 100px;
+        height: 100px;
+        margin-bottom: 10px;
+      }
+      .artist-name {
+        font-weight: bold;
+      }
+      .artist-listeners {
+        color: #555;
+        white-space: pre-wrap;
+      }
+      .back-btn {
+        padding: 10px 20px;
+        background-color: #1db954;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <div class="header">
+        <h1 id="teamName">Team Roster</h1>
+      </div>
+      <div id="roster" class="roster"></div>
+      <button class="back-btn" onclick="window.location.href='roster.html'">
+        Back to Roster
+      </button>
+    </div>
+
+    <script>
+      const urlParams = new URLSearchParams(window.location.search);
+      const teamName = urlParams.get('teamname');
+      document.getElementById('teamName').textContent = teamName;
+
+      fetch(
+        `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getTeamByName?teamname=${teamName}`
+      )
+        .then((response) => response.json())
+        .then((data) => {
+          if (data.hasTeam) {
+            displayRoster(data.team);
+          } else {
+            document.getElementById('roster').innerHTML =
+              '<p>Team not found.</p>';
+          }
+        })
+        .catch((error) => {
+          console.error('Error fetching team data:', error);
+          document.getElementById('roster').innerHTML =
+            '<p>Error loading team data.</p>';
+        });
+
+      function displayRoster(team) {
+        const rosterContainer = document.getElementById('roster');
+        rosterContainer.innerHTML = '';
+        const artists = team.artists;
+
+        // Order slots correctly: artist_100k, artist_250k_1, artist_250k_2, artist_250k_3, artist_1m
+        const slotOrder = [
+          'artist_100k',
+          'artist_250k_1',
+          'artist_250k_2',
+          'artist_250k_3',
+          'artist_1m',
+        ];
+
+        const slotLabels = {
+          artist_100k: '100K',
+          artist_250k_1: '250K',
+          artist_250k_2: '250K',
+          artist_250k_3: '250K',
+          artist_1m: '1M',
+        };
+
+        slotOrder.forEach((slotKey) => {
+          for (const artistCode in artists) {
+            if (
+              artists.hasOwnProperty(artistCode) &&
+              artists[artistCode].active_flg === 1 &&
+              artists[artistCode].slot === slotKey
+            ) {
+              const artist = artists[artistCode];
+              const artistElement = document.createElement('div');
+              artistElement.classList.add('roster-slot');
+
+              const artistImage = document.createElement('img');
+              artistImage.classList.add('artist-image');
+              artistImage.src = artist.imageUrl
+                ? artist.imageUrl
+                : 'https://via.placeholder.com/100';
+              artistElement.appendChild(artistImage);
+
+              const artistName = document.createElement('div');
+              artistName.classList.add('artist-name');
+              artistName.textContent = artist.name;
+              artistElement.appendChild(artistName);
+
+              const artistSlot = document.createElement('div');
+              artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
+              artistElement.appendChild(artistSlot);
+
+              const artistListeners = document.createElement('div');
+              artistListeners.classList.add('artist-listeners');
+              const dates = Object.keys(artist)
+                .filter(
+                  (key) =>
+                    key !== 'name' &&
+                    key !== 'imageUrl' &&
+                    key !== 'link' &&
+                    key !== 'active_flg' &&
+                    key !== 'slot'
+                )
+                .sort();
+              const baselineDate = dates[0];
+              const mostRecentDate = dates[dates.length - 1];
+              artistListeners.textContent = `Baseline: ${artist[baselineDate]} monthly listeners\nMost Recent: ${artist[mostRecentDate]} monthly listeners`;
+              artistElement.appendChild(artistListeners);
+
+              rosterContainer.appendChild(artistElement);
+            }
+          }
+        });
+      }
+    </script>
+  </body>
+</html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Fantasy Music League</title>
+    <style>
+      body {
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background-color: #ffffff;
+        color: #333333;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        height: 100vh;
+        margin: 0;
+        padding-top: 40px; /* Space for future header */
+      }
+      h1 {
+        font-size: 36px;
+        margin-bottom: 10px;
+        color: #333333;
+      }
+      .subtitle {
+        font-size: 18px;
+        color: #666666;
+        margin-bottom: 30px;
+      }
+      .google-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px 24px;
+        background-color: #1db954;
+        color: #ffffff;
+        border: none;
+        border-radius: 25px;
+        font-size: 18px;
+        font-weight: bold;
+        text-transform: uppercase;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      .google-btn img {
+        width: 20px;
+        height: 20px;
+        margin-right: 10px;
+      }
+      .google-btn:hover {
+        background-color: #1ed760;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Fantasy Music League</h1>
+    <div class="subtitle">
+      Draft a roster of artists and compete to see if you have the best eye for
+      talent!
+    </div>
+    <button class="google-btn" id="googleSignInBtn">
+      <img
+        src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg"
+        alt="Google Logo"
+      />
+      Continue with Google
+    </button>
+
+    <script src="firebaseConfig.js" type="module"></script>
+    <!-- Ensure this is a module -->
+
+    <script type="module">
+      // Import the functions you need from the SDKs you need
+      import { auth } from "./firebaseConfig.js";
+      import {
+        signInWithPopup,
+        GoogleAuthProvider,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+
+      // Google Sign-In
+      const googleSignInBtn = document.getElementById("googleSignInBtn");
+      googleSignInBtn.addEventListener("click", () => {
+        const provider = new GoogleAuthProvider();
+        signInWithPopup(auth, provider)
+          .then((result) => {
+            const user = result.user;
+            console.log("User signed in:", user);
+            localStorage.setItem("userEmail", user.email); // Store the user's email in localStorage
+            alert(`Welcome ${user.displayName} (${user.email})!`);
+            // Check if the user already has a team
+            return fetch(
+              `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${user.email}`
+            );
+          })
+          .then((response) => response.json())
+          .then((data) => {
+            if (data.hasTeam) {
+              window.location.href = "roster.html";
+            } else {
+              window.location.href = "search.html";
+            }
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            alert(`Error: ${error.message}`);
+          });
+      });
+    </script>
+  </body>
+</html>
