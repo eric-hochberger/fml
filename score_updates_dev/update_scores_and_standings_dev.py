@@ -19,7 +19,7 @@ if not firebase_admin._apps:
     firebase_credentials = os.getenv('FIREBASE_TEST_SERVICE_ACCOUNT')
     cred = credentials.Certificate(json.loads(firebase_credentials))
     firebase_admin.initialize_app(cred, {
-        'projectId': 'fantasy-musicpleague-test'
+        'projectId': 'fantasy-music-league-test'  # Use your test project's ID
     })
 
 db = firestore.client()
@@ -72,15 +72,19 @@ def calculate_percentage_difference_with_loyalty(df):
         return 0
     
     min_date, max_date = date_columns[0], date_columns[-1]
-    min_listeners = df[min_date]
-    max_listeners = df[max_date]
-    percentage_diffs = np.where(min_listeners == 0, 0, (max_listeners - min_listeners) / min_listeners * 100)
+    min_listeners = df[min_date].fillna(0)
+    max_listeners = df[max_date].fillna(0)
     
-    loyalty_multiplier = 1 + 0.05 * df['weeks_retained']
-    # Apply loyalty bonus only if the percentage difference is positive
-    adjusted_percentage_diffs = np.where(percentage_diffs > 0, percentage_diffs * loyalty_multiplier, percentage_diffs)
+    # Prevent division by zero
+    percentage_diffs = np.where(min_listeners == 0, np.nan, (max_listeners - min_listeners) / min_listeners * 100)
     
-    return np.mean(adjusted_percentage_diffs)
+    loyalty_multiplier = 1 + 0.05 * df['weeks_retained'].fillna(0)
+    
+    # Apply loyalty bonus only if the percentage difference is positive and not NaN
+    adjusted_percentage_diffs = np.where(np.isnan(percentage_diffs) | (percentage_diffs <= 0), percentage_diffs, percentage_diffs * loyalty_multiplier)
+    
+    # Return the mean of adjusted percentage differences, handling NaN values appropriately
+    return np.nanmean(adjusted_percentage_diffs)
 
 def update_firestore():
     teams_ref = db.collection('teams')
@@ -96,14 +100,15 @@ def update_firestore():
 
         artists_data = []
         for artist_code, artist_info in team_data['artists'].items():
-            if artist_info.get('active_flg', 0) == 1:  # Only update active artists
+            if artist_info.get('active_flg', 0) == 1:  # Update only active artists
                 artist_name, monthly_streams = get_monthly_listeners(artist_code)
                 team_data['artists'][artist_code][current_date] = monthly_streams
                 print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
-
-                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-                artist_df['artist_code'] = artist_code
-                artists_data.append(artist_df)
+            
+            # Include both active and inactive artists in the score calculation
+            artist_df = pd.DataFrame([team_data['artists'][artist_code]])
+            artist_df['artist_code'] = artist_code
+            artists_data.append(artist_df)
         
         if artists_data:
             df = pd.concat(artists_data)
@@ -114,7 +119,10 @@ def update_firestore():
 
     standings = []
     for teamname, df in league.items():
-        score = calculate_percentage_difference_with_loyalty(df)
+        if not df.empty:  # Ensure there's data to calculate a score
+            score = calculate_percentage_difference_with_loyalty(df)
+        else:
+            score = 0  # Assign a default score if there are no data points
         standings.append({'teamname': teamname, 'score': score})
     
     standings_df = pd.DataFrame(standings)
