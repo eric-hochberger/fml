@@ -12,6 +12,38 @@
         justify-content: center;
         align-items: center;
         min-height: 100vh;
+        flex-direction: column;
+      }
+      .navbar {
+        width: 100%;
+        background-color: #333;
+        overflow: hidden;
+        display: flex;
+        justify-content: center;
+      }
+      .nav-tabs {
+        list-style-type: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+      }
+      .nav-tabs li {
+        margin-right: 15px;
+      }
+      .nav-tabs li a {
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+      }
+      .nav-tabs li a:hover {
+        background-color: #ddd;
+        color: black;
+      }
+      .nav-tabs li a.active {
+        background-color: #4caf50;
+        color: white;
       }
       .container {
         background-color: white;
@@ -21,6 +53,7 @@
         width: 90%;
         max-width: 800px;
         text-align: center;
+        margin-top: 20px;
       }
       .header {
         background-color: #1db954;
@@ -167,6 +200,13 @@
     </style>
   </head>
   <body>
+    <nav class="navbar">
+      <ul class="nav-tabs">
+        <li><a href="roster.html" class="active">Roster</a></li>
+        <li><a href="faq.html">FAQ</a></li>
+        <li><a href="privacy_policy.html">Privacy Policy</a></li>
+      </ul>
+    </nav>
     <div class="container">
       <div class="header">
         <h1>Your Roster</h1>
@@ -232,29 +272,38 @@
     </div>
 
     <script>
-      const rosterContainer = document.getElementById('roster');
-      const standingsBody = document.getElementById('standingsBody');
-      const searchBtn = document.getElementById('searchBtn');
-      const searchInput = document.getElementById('searchInput');
-      const searchResults = document.getElementById('searchResults');
-      const submitBtn = document.getElementById('submitBtn');
-      const loadingMessage = document.getElementById('loadingMessage');
-      const errorMessage = document.getElementById('errorMessage');
+      const rosterContainer = document.getElementById("roster");
+      const standingsBody = document.getElementById("standingsBody");
+      const searchBtn = document.getElementById("searchBtn");
+      const searchInput = document.getElementById("searchInput");
+      const searchResults = document.getElementById("searchResults");
+      const submitBtn = document.getElementById("submitBtn");
+      const loadingMessage = document.getElementById("loadingMessage");
+      const errorMessage = document.getElementById("errorMessage");
 
-      const addSlot = document.getElementById('addSlot');
-      const addArtistName = document.getElementById('addArtistName');
-      const addArtistImage = document.getElementById('addArtistImage');
-      const removeAddArtistBtn = document.getElementById('removeAddArtistBtn');
+      const addSlot = document.getElementById("addSlot");
+      const addArtistName = document.getElementById("addArtistName");
+      const addArtistImage = document.getElementById("addArtistImage");
+      const removeAddArtistBtn = document.getElementById("removeAddArtistBtn");
 
-      const dropSlot = document.getElementById('dropSlot');
-      const dropArtistName = document.getElementById('dropArtistName');
-      const dropArtistImage = document.getElementById('dropArtistImage');
+      const dropSlot = document.getElementById("dropSlot");
+      const dropArtistName = document.getElementById("dropArtistName");
+      const dropArtistImage = document.getElementById("dropArtistImage");
       const removeDropArtistBtn = document.getElementById(
-        'removeDropArtistBtn'
+        "removeDropArtistBtn"
       );
 
-      document.addEventListener('DOMContentLoaded', () => {
-        const email = localStorage.getItem('userEmail');
+      document.addEventListener("DOMContentLoaded", function () {
+        const tabs = document.querySelectorAll(".nav-tabs li a");
+        tabs.forEach((tab) => {
+          if (tab.href === window.location.href) {
+            tab.classList.add("active");
+          }
+        });
+      });
+
+      document.addEventListener("DOMContentLoaded", () => {
+        const email = localStorage.getItem("userEmail");
 
         fetch(
           `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${email}`
@@ -264,36 +313,36 @@
             if (data.hasTeam) {
               displayRoster(data.team);
             } else {
-              rosterContainer.innerHTML = '<p>No team found.</p>';
+              rosterContainer.innerHTML = "<p>No team found.</p>";
             }
           })
           .catch((error) => {
-            console.error('Error fetching team data:', error);
-            rosterContainer.innerHTML = '<p>Error loading team data.</p>';
+            console.error("Error fetching team data:", error);
+            rosterContainer.innerHTML = "<p>Error loading team data.</p>";
           });
 
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getStandings'
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getStandings"
         )
           .then((response) => response.json())
           .then((data) => {
             displayStandings(data, email);
           })
           .catch((error) => {
-            console.error('Error fetching standings:', error);
+            console.error("Error fetching standings:", error);
           });
       });
 
       function displayRoster(team) {
-        rosterContainer.innerHTML = '';
+        rosterContainer.innerHTML = "";
         const artists = team.artists;
 
         const order = [
-          'artist_100k',
-          'artist_250k_1',
-          'artist_250k_2',
-          'artist_250k_3',
-          'artist_1m',
+          "artist_100k",
+          "artist_250k_1",
+          "artist_250k_2",
+          "artist_250k_3",
+          "artist_1m",
         ];
 
         order.forEach((category) => {
@@ -304,42 +353,42 @@
               artists[artistCode].slot === category
             ) {
               const artist = artists[artistCode];
-              const artistElement = document.createElement('div');
-              artistElement.classList.add('roster-slot');
+              const artistElement = document.createElement("div");
+              artistElement.classList.add("roster-slot");
 
-              const artistImage = document.createElement('img');
-              artistImage.classList.add('artist-image');
+              const artistImage = document.createElement("img");
+              artistImage.classList.add("artist-image");
               artistImage.src = artist.imageUrl
                 ? artist.imageUrl
-                : 'https://via.placeholder.com/100';
+                : "https://via.placeholder.com/100";
               artistElement.appendChild(artistImage);
 
-              const artistName = document.createElement('div');
-              artistName.classList.add('artist-name');
+              const artistName = document.createElement("div");
+              artistName.classList.add("artist-name");
               artistName.textContent = artist.name;
               artistElement.appendChild(artistName);
 
-              const artistSlot = document.createElement('div');
-              if (category.startsWith('artist_250k')) {
-                artistSlot.textContent = '250K';
-              } else if (category === 'artist_100k') {
-                artistSlot.textContent = '100K';
-              } else if (category === 'artist_1m') {
-                artistSlot.textContent = '1M';
+              const artistSlot = document.createElement("div");
+              if (category.startsWith("artist_250k")) {
+                artistSlot.textContent = "250K";
+              } else if (category === "artist_100k") {
+                artistSlot.textContent = "100K";
+              } else if (category === "artist_1m") {
+                artistSlot.textContent = "1M";
               }
-              artistSlot.classList.add('artist-slot');
+              artistSlot.classList.add("artist-slot");
               artistElement.appendChild(artistSlot);
 
-              const artistListeners = document.createElement('div');
-              artistListeners.classList.add('artist-listeners');
+              const artistListeners = document.createElement("div");
+              artistListeners.classList.add("artist-listeners");
               const dates = Object.keys(artist)
                 .filter(
                   (key) =>
-                    key !== 'name' &&
-                    key !== 'imageUrl' &&
-                    key !== 'link' &&
-                    key !== 'active_flg' &&
-                    key !== 'slot'
+                    key !== "name" &&
+                    key !== "imageUrl" &&
+                    key !== "link" &&
+                    key !== "active_flg" &&
+                    key !== "slot"
                 )
                 .sort();
               const baselineDate = dates[0];
@@ -354,28 +403,28 @@
       }
 
       function displayStandings(data, userEmail) {
-        standingsBody.innerHTML = '';
+        standingsBody.innerHTML = "";
 
         // Sort standings by score, highest to lowest
         data.sort((a, b) => b.score - a.score);
 
         data.forEach((team) => {
-          const row = document.createElement('tr');
+          const row = document.createElement("tr");
           if (team.email === userEmail) {
-            row.classList.add('highlight');
+            row.classList.add("highlight");
           }
-          const nameCell = document.createElement('td');
+          const nameCell = document.createElement("td");
           nameCell.textContent = team.teamname;
-          nameCell.style.cursor = 'pointer';
-          nameCell.style.textDecoration = 'underline';
-          nameCell.addEventListener('click', () => {
+          nameCell.style.cursor = "pointer";
+          nameCell.style.textDecoration = "underline";
+          nameCell.addEventListener("click", () => {
             window.location.href = `view_team.html?teamname=${encodeURIComponent(
               team.teamname
             )}`;
           });
           row.appendChild(nameCell);
 
-          const scoreCell = document.createElement('td');
+          const scoreCell = document.createElement("td");
           scoreCell.textContent = parseFloat(team.score).toFixed(2); // Rounding to 2 decimal places
           row.appendChild(scoreCell);
 
@@ -383,9 +432,9 @@
         });
       }
 
-      searchBtn.addEventListener('click', searchArtists);
-      searchInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
+      searchBtn.addEventListener("click", searchArtists);
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
           searchArtists();
         }
       });
@@ -393,7 +442,7 @@
       function searchArtists() {
         const query = searchInput.value;
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken'
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
         )
           .then((response) => response.json())
           .then((tokenData) => {
@@ -412,33 +461,33 @@
             displayResults(data);
           })
           .catch((error) => {
-            console.error('Error fetching data:', error);
+            console.error("Error fetching data:", error);
           });
       }
 
       function displayResults(data) {
-        searchResults.innerHTML = '';
+        searchResults.innerHTML = "";
         const artists = data.artists.items.slice(0, 5); // Limit to 5 results
         artists.forEach((artist) => {
-          const artistElement = document.createElement('div');
-          artistElement.classList.add('artist-result');
+          const artistElement = document.createElement("div");
+          artistElement.classList.add("artist-result");
 
-          const artistImage = document.createElement('img');
+          const artistImage = document.createElement("img");
           artistImage.src = artist.images[0]
             ? artist.images[0].url
-            : 'https://via.placeholder.com/50';
+            : "https://via.placeholder.com/50";
           artistElement.appendChild(artistImage);
 
-          const artistDetails = document.createElement('div');
+          const artistDetails = document.createElement("div");
 
-          const artistName = document.createElement('div');
-          artistName.classList.add('artist-name');
+          const artistName = document.createElement("div");
+          artistName.classList.add("artist-name");
           artistName.textContent = artist.name;
           artistDetails.appendChild(artistName);
 
           artistElement.appendChild(artistDetails);
 
-          artistElement.addEventListener('click', () =>
+          artistElement.addEventListener("click", () =>
             addArtistToSlot(artist)
           );
           searchResults.appendChild(artistElement);
@@ -449,83 +498,83 @@
         const artistName = artist.name;
         const artistImage = artist.images[0]
           ? artist.images[0].url
-          : 'https://via.placeholder.com/50';
+          : "https://via.placeholder.com/50";
         const artistLink = artist.external_urls.spotify;
 
         // Check which slot is empty and add the artist there
-        if (addArtistName.textContent === '') {
+        if (addArtistName.textContent === "") {
           fillAddSlot(artistName, artistImage, artistLink);
-        } else if (dropArtistName.textContent === '') {
+        } else if (dropArtistName.textContent === "") {
           fillDropSlot(artistName, artistImage, artistLink);
         } else {
-          showError('Both add and drop slots are filled.');
+          showError("Both add and drop slots are filled.");
         }
       }
 
       function fillAddSlot(artistName, artistImage, artistLink) {
         addArtistName.textContent = artistName;
         addArtistImage.src = artistImage;
-        addArtistImage.style.display = 'block';
-        addArtistName.setAttribute('data-link', artistLink);
-        removeAddArtistBtn.style.display = 'block';
+        addArtistImage.style.display = "block";
+        addArtistName.setAttribute("data-link", artistLink);
+        removeAddArtistBtn.style.display = "block";
       }
 
       function fillDropSlot(artistName, artistImage, artistLink) {
         dropArtistName.textContent = artistName;
         dropArtistImage.src = artistImage;
-        dropArtistImage.style.display = 'block';
-        dropArtistName.setAttribute('data-link', artistLink);
-        removeDropArtistBtn.style.display = 'block';
+        dropArtistImage.style.display = "block";
+        dropArtistName.setAttribute("data-link", artistLink);
+        removeDropArtistBtn.style.display = "block";
       }
 
-      removeAddArtistBtn.addEventListener('click', () => {
-        addArtistName.textContent = '';
-        addArtistImage.src = '';
-        addArtistImage.style.display = 'none';
-        addArtistName.removeAttribute('data-link');
-        removeAddArtistBtn.style.display = 'none';
+      removeAddArtistBtn.addEventListener("click", () => {
+        addArtistName.textContent = "";
+        addArtistImage.src = "";
+        addArtistImage.style.display = "none";
+        addArtistName.removeAttribute("data-link");
+        removeAddArtistBtn.style.display = "none";
         hideError();
       });
 
-      removeDropArtistBtn.addEventListener('click', () => {
-        dropArtistName.textContent = '';
-        dropArtistImage.src = '';
-        dropArtistImage.style.display = 'none';
-        dropArtistName.removeAttribute('data-link');
-        removeDropArtistBtn.style.display = 'none';
+      removeDropArtistBtn.addEventListener("click", () => {
+        dropArtistName.textContent = "";
+        dropArtistImage.src = "";
+        dropArtistImage.style.display = "none";
+        dropArtistName.removeAttribute("data-link");
+        removeDropArtistBtn.style.display = "none";
         hideError();
       });
 
       function showError(message) {
         errorMessage.textContent = message;
-        errorMessage.style.display = 'block';
+        errorMessage.style.display = "block";
       }
 
       function hideError() {
-        errorMessage.style.display = 'none';
+        errorMessage.style.display = "none";
       }
 
       function showLoadingMessage() {
-        loadingMessage.style.display = 'block';
+        loadingMessage.style.display = "block";
       }
 
       function hideLoadingMessage() {
-        loadingMessage.style.display = 'none';
+        loadingMessage.style.display = "none";
       }
 
       function submitChanges() {
         hideError();
         showLoadingMessage();
 
-        const email = localStorage.getItem('userEmail');
-        const dropArtistLink = dropArtistName.getAttribute('data-link');
-        const addArtistLink = addArtistName.getAttribute('data-link');
+        const email = localStorage.getItem("userEmail");
+        const dropArtistLink = dropArtistName.getAttribute("data-link");
+        const addArtistLink = addArtistName.getAttribute("data-link");
         const addArtistImageUrl = addArtistImage.src;
 
         if (!dropArtistLink || !addArtistLink) {
           hideLoadingMessage();
           showError(
-            'Please select both an artist to add and an artist to drop.'
+            "Please select both an artist to add and an artist to drop."
           );
           return;
         }
@@ -534,11 +583,11 @@
         const addArtistCode = extractArtistCode(addArtistLink);
 
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validateAddDrop',
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validateAddDrop",
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({
               email,
@@ -551,25 +600,25 @@
           .then((response) => response.json())
           .then((data) => {
             hideLoadingMessage();
-            if (data.status === 'success') {
-              window.location.href = 'roster.html';
+            if (data.status === "success") {
+              window.location.href = "roster.html";
             } else {
-              showError(data.issues.map((issue) => issue.message).join('\n'));
+              showError(data.issues.map((issue) => issue.message).join("\n"));
             }
           })
           .catch((error) => {
             hideLoadingMessage();
-            console.error('Error updating roster:', error);
-            showError('Error updating roster. Please try again.');
+            console.error("Error updating roster:", error);
+            showError("Error updating roster. Please try again.");
           });
       }
 
-      submitBtn.addEventListener('click', submitChanges);
+      submitBtn.addEventListener("click", submitChanges);
 
       function extractArtistCode(url) {
-        const parts = url.split('artist/');
+        const parts = url.split("artist/");
         if (parts.length < 2) return null;
-        return parts[1].split('?')[0];
+        return parts[1].split("?")[0];
       }
     </script>
   </body>
