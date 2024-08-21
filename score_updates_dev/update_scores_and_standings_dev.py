@@ -19,7 +19,7 @@ if not firebase_admin._apps:
     firebase_credentials = os.getenv('FIREBASE_TEST_SERVICE_ACCOUNT')
     cred = credentials.Certificate(json.loads(firebase_credentials))
     firebase_admin.initialize_app(cred, {
-        'projectId': 'fantasy-music-league-test'  # Use your test project's ID
+        'projectId': 'fantasy-musicpleague-test'  # Use your test project's ID
     })
 
 db = firestore.client()
