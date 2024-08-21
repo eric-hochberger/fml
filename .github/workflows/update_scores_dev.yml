@@ -1,0 +1,27 @@
+name: Test Update Listeners
+
+on:
+  workflow_dispatch:  # Allows manual triggering
+
+jobs:
+  test_update_listeners:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: '3.x'
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install firebase-admin requests beautifulsoup4 pandas numpy
+
+    - name: Run update script
+      env:
+        FIREBASE_TEST_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_TEST_SERVICE_ACCOUNT }}
+      run: score_updates_dev/update_scores_and_standings_dev.py
