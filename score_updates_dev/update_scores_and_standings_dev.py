@@ -14,7 +14,7 @@ import json
 # Set up logging
 logging.basicConfig(filename='listener_errors.log', level=logging.INFO)
 
-# Initialize Firebase Admin
+# Initialize Firebase Admin with credentials from the GitHub secret
 if not firebase_admin._apps:
     firebase_credentials = os.getenv('FIREBASE_TEST_SERVICE_ACCOUNT')
     cred = credentials.Certificate(json.loads(firebase_credentials))
@@ -52,7 +52,7 @@ def get_monthly_listeners(artist_code, retries=3):
 
 def update_weeks_retained(df):
     date_columns = [col for col in df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
-    date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
+    date_columns are sorted date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
     
     if not date_columns:
         df['weeks_retained'] = 0
@@ -66,25 +66,22 @@ def update_weeks_retained(df):
 
 def calculate_percentage_difference_with_loyalty(df):
     date_columns = [col for col in df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
-    date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
+    date_columns are sorted date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
     
     if not date_columns:
         return 0
     
     min_date, max_date = date_columns[0], date_columns[-1]
-    min_listeners = df[min_date].fillna(0)
-    max_listeners = df[max_date].fillna(0)
+    min_listeners = df[min_date]
+    max_listeners = df[max_date]
+    percentage_diffs = np.where(min_listeners == 0, 0, (max_listeners - min_listeners) / min_listeners * 100)
     
-    # Prevent division by zero
-    percentage_diffs = np.where(min_listeners == 0, np.nan, (max_listeners - min_listeners) / min_listeners * 100)
+    loyalty_multiplier = 1 + 0.05 * df['weeks_retained']
     
-    loyalty_multiplier = 1 + 0.05 * df['weeks_retained'].fillna(0)
+    # Apply loyalty bonus only if the percentage difference is positive
+    adjusted_percentage_diffs = np.where(percentage_diffs > 0, percentage_diffs * loyalty_multiplier, percentage_diffs)
     
-    # Apply loyalty bonus only if the percentage difference is positive and not NaN
-    adjusted_percentage_diffs = np.where(np.isnan(percentage_diffs) | (percentage_diffs <= 0), percentage_diffs, percentage_diffs * loyalty_multiplier)
-    
-    # Return the mean of adjusted percentage differences, handling NaN values appropriately
-    return np.nanmean(adjusted_percentage_diffs)
+    return np.mean(adjusted_percentage_diffs)
 
 def update_firestore():
     teams_ref = db.collection('teams')
@@ -100,15 +97,14 @@ def update_firestore():
 
         artists_data = []
         for artist_code, artist_info in team_data['artists'].items():
-            if artist_info.get('active_flg', 0) == 1:  # Update only active artists
+            if artist_info.get('active_flg', 0) == 1:  # Only update active artists
                 artist_name, monthly_streams = get_monthly_listeners(artist_code)
                 team_data['artists'][artist_code][current_date] = monthly_streams
                 print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
-            
-            # Include both active and inactive artists in the score calculation
-            artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-            artist_df['artist_code'] = artist_code
-            artists_data.append(artist_df)
+
+                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
+                artist_df['artist_code'] = artist_code
+                artists_data.append(artist_df)
         
         if artists_data:
             df = pd.concat(artists_data)
@@ -119,10 +115,7 @@ def update_firestore():
 
     standings = []
     for teamname, df in league.items():
-        if not df.empty:  # Ensure there's data to calculate a score
-            score = calculate_percentage_difference_with_loyalty(df)
-        else:
-            score = 0  # Assign a default score if there are no data points
+        score = calculate_percentage_difference_with_loyalty(df)
         standings.append({'teamname': teamname, 'score': score})
     
     standings_df = pd.DataFrame(standings)
