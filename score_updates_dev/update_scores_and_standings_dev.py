@@ -66,7 +66,7 @@ def update_weeks_retained(df):
 
 def calculate_percentage_difference_with_loyalty(df):
     date_columns = [col for col in df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
-    date_columns are sorted date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
+    date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
     
     if not date_columns:
         return 0
@@ -86,7 +86,7 @@ def calculate_percentage_difference_with_loyalty(df):
 def update_firestore():
     teams_ref = db.collection('teams')
     standings_ref = db.collection('standings')
-    docs are sorted docs = teams_ref.stream()
+    docs = teams_ref.stream()
 
     current_date = datetime.now().strftime('%Y-%m-%d')
     league = {}
