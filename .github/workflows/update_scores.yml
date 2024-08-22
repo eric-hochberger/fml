@@ -22,9 +22,9 @@ jobs:
         pip install firebase-admin requests beautifulsoup4 pandas numpy
 
     - name: Make script executable
-      run: chmod +x score_updates_dev/update_scores_and_standings.py
+      run: chmod +x score_updates_prod/update_scores_and_standings.py
 
     - name: Run update script
       env:
         FIREBASE_TEST_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-      run: python score_updates_dev/update_scores_and_standings.py
+      run: python score_updates_prod/update_scores_and_standings.py
