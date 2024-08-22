@@ -51,36 +51,54 @@ def get_monthly_listeners(artist_code, retries=3):
     return artist_name, monthly_streams
 
 def update_weeks_retained(df):
-    date_columns = [col for col in df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
-    date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
-    
-    if not date_columns:
-        df['weeks_retained'] = 0
-        return df
-
-    min_date = datetime.strptime(date_columns[0], '%Y-%m-%d')
-    max_date = datetime.strptime(date_columns[-1], '%Y-%m-%d')
-    df['weeks_retained'] = (max_date - min_date).days // 7
-    
+    # Calculate weeks retained for each artist individually
+    for artist_code in df['artist_code'].unique():
+        artist_df = df[df['artist_code'] == artist_code]
+        date_columns = [col for col in artist_df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
+        date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
+        
+        if not date_columns:
+            df.loc[df['artist_code'] == artist_code, 'weeks_retained'] = 0
+        else:
+            min_date = datetime.strptime(date_columns[0], '%Y-%m-%d')
+            max_date = datetime.strptime(date_columns[-1], '%Y-%m-%d')
+            weeks_retained = (max_date - min_date).days // 7
+            df.loc[df['artist_code'] == artist_code, 'weeks_retained'] = weeks_retained
+            
     return df
 
 def calculate_percentage_difference_with_loyalty(df):
-    date_columns = [col for col in df.columns if re.match(r'\d{4}-\d{2}-\d{2}', col)]
-    date_columns = sorted(date_columns, key=lambda date: datetime.strptime(date, '%Y-%m-%d'))
+    df = update_weeks_retained(df)
     
-    if not date_columns:
-        return 0
+    # Initialize a list to store each artist's adjusted percentage difference
+    adjusted_diffs = []
     
-    min_date, max_date = date_columns[0], date_columns[-1]
-    min_listeners = df[min_date]
-    max_listeners = df[max_date]
-    percentage_diffs = np.where(min_listeners == 0, 0, (max_listeners - min_listeners) / min_listeners * 100)
+    for artist_code in df['artist_code'].unique():
+        artist_df = df[df['artist_code'] == artist_code]
+        
+        min_date = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns.min()
+        max_date = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns.max()
+        
+        min_listeners = artist_df[min_date].values[0] if min_date else 0
+        max_listeners = artist_df[max_date].values[0] if max_date else 0
+        
+        if min_listeners == 0:
+            percentage_diff = 0
+        else:
+            percentage_diff = (max_listeners - min_listeners) / min_listeners * 100
+        
+        weeks_retained = artist_df['weeks_retained'].values[0] if 'weeks_retained' in artist_df else 0
+        loyalty_multiplier = 1 + 0.05 * weeks_retained
+        
+        if percentage_diff > 0:
+            adjusted_diff = percentage_diff * loyalty_multiplier
+        else:
+            adjusted_diff = percentage_diff
+        
+        adjusted_diffs.append(adjusted_diff)
     
-    loyalty_multiplier = 1 + 0.05 * df['weeks_retained']
-    # Apply loyalty bonus only if the percentage difference is positive
-    adjusted_percentage_diffs = np.where(percentage_diffs > 0, percentage_diffs * loyalty_multiplier, percentage_diffs)
-    
-    return np.mean(adjusted_percentage_diffs)
+    # Return the mean of all adjusted percentage differences
+    return np.nanmean(adjusted_diffs)
 
 def update_firestore():
     teams_ref = db.collection('teams')
@@ -101,9 +119,9 @@ def update_firestore():
                 team_data['artists'][artist_code][current_date] = monthly_streams
                 print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
 
-                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-                artist_df['artist_code'] = artist_code
-                artists_data.append(artist_df)
+            artist_df = pd.DataFrame([team_data['artists'][artist_code]])
+            artist_df['artist_code'] = artist_code
+            artists_data.append(artist_df)
         
         if artists_data:
             df = pd.concat(artists_data)
