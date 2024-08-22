@@ -26,5 +26,5 @@ jobs:
 
     - name: Run update script
       env:
-        FIREBASE_TEST_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
       run: python score_updates_prod/update_scores_and_standings.py
