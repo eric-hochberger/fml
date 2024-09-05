@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Spotify Artist Search</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -26,7 +27,7 @@
         flex: 1;
       }
       .header {
-        background-color: #1db954;
+        background-color: #e53e3e;
         color: white;
         padding: 10px;
         border-radius: 8px 8px 0 0;
@@ -34,7 +35,7 @@
       }
       .btn {
         padding: 10px 20px;
-        background-color: #1db954;
+        background-color: #e53e3e;
         color: white;
         border: none;
         border-radius: 4px;
@@ -137,11 +138,11 @@
         margin-bottom: 10px;
       }
       .rules li::before {
-        content: '•';
+        content: "•";
         position: absolute;
         left: 0;
         top: 0;
-        color: #1db954;
+        color: #e53e3e;
         font-size: 1.5em;
       }
       .rules ul ul {
@@ -152,13 +153,49 @@
         bottom: 20px;
         right: 20px;
         padding: 10px 20px;
-        background-color: #1db954;
+        background-color: #f44336;
         color: white;
         border: none;
         border-radius: 4px;
         cursor: pointer;
         display: none;
         z-index: 1000;
+      }
+
+      /* Media Queries for Mobile Devices */
+      @media screen and (max-width: 768px) {
+        .container {
+          padding: 15px;
+          max-width: 100%; /* Full width on mobile */
+        }
+        .header h1 {
+          font-size: 20px;
+        }
+        .btn {
+          font-size: 14px;
+          padding: 8px 16px;
+        }
+        .search-bar {
+          font-size: 14px;
+          padding: 8px;
+          width: 100%; /* Full width search bar on mobile */
+          max-width: none;
+        }
+        .artist-result {
+          width: 100%; /* Full width results on mobile */
+          max-width: none;
+        }
+        .roster {
+          justify-content: space-between; /* Align items in rows */
+        }
+        .roster-slot {
+          width: 48%; /* Smaller slots on mobile */
+          height: 120px;
+          margin-bottom: 15px;
+        }
+        .slot-label {
+          font-size: 14px;
+        }
       }
     </style>
   </head>
@@ -234,27 +271,27 @@
     <button class="back-to-top" id="backToTopBtn">Back to Top</button>
 
     <script>
-      const searchBtn = document.getElementById('searchBtn');
-      const searchInput = document.getElementById('searchInput');
-      const searchResults = document.getElementById('searchResults');
-      const submitBtn = document.getElementById('submitBtn');
-      const teamNameInput = document.getElementById('teamNameInput');
-      const loadingMessage = document.getElementById('loadingMessage');
-      const errorMessage = document.getElementById('errorMessage');
-      const backToTopBtn = document.getElementById('backToTopBtn');
+      const searchBtn = document.getElementById("searchBtn");
+      const searchInput = document.getElementById("searchInput");
+      const searchResults = document.getElementById("searchResults");
+      const submitBtn = document.getElementById("submitBtn");
+      const teamNameInput = document.getElementById("teamNameInput");
+      const loadingMessage = document.getElementById("loadingMessage");
+      const errorMessage = document.getElementById("errorMessage");
+      const backToTopBtn = document.getElementById("backToTopBtn");
 
       const slots = {
-        slot100k: document.getElementById('slot100k'),
-        slot250k1: document.getElementById('slot250k1'),
-        slot250k2: document.getElementById('slot250k2'),
-        slot250k3: document.getElementById('slot250k3'),
-        slot1M: document.getElementById('slot1M'),
+        slot100k: document.getElementById("slot100k"),
+        slot250k1: document.getElementById("slot250k1"),
+        slot250k2: document.getElementById("slot250k2"),
+        slot250k3: document.getElementById("slot250k3"),
+        slot1M: document.getElementById("slot1M"),
       };
 
       function searchArtists() {
         const query = searchInput.value;
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken'
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
         )
           .then((response) => response.json())
           .then((tokenData) => {
@@ -273,36 +310,36 @@
             displayResults(data);
           })
           .catch((error) => {
-            console.error('Error fetching data:', error);
+            console.error("Error fetching data:", error);
           });
       }
 
-      searchBtn.addEventListener('click', searchArtists);
-      searchInput.addEventListener('keydown', (event) => {
-        if (event.key === 'Enter') {
+      searchBtn.addEventListener("click", searchArtists);
+      searchInput.addEventListener("keydown", (event) => {
+        if (event.key === "Enter") {
           searchArtists();
         }
       });
 
       function displayResults(data) {
-        searchResults.innerHTML = '';
+        searchResults.innerHTML = "";
         const artists = data.artists.items.slice(0, 5); // Limit to 5 results
         artists.forEach((artist) => {
-          const artistElement = document.createElement('div');
-          artistElement.classList.add('artist-result');
+          const artistElement = document.createElement("div");
+          artistElement.classList.add("artist-result");
 
-          const artistImage = document.createElement('img');
-          artistImage.classList.add('artist-image');
+          const artistImage = document.createElement("img");
+          artistImage.classList.add("artist-image");
           artistImage.src = artist.images[0]
             ? artist.images[0].url
-            : 'https://via.placeholder.com/50';
+            : "https://via.placeholder.com/50";
           artistElement.appendChild(artistImage);
 
-          const artistName = document.createElement('span');
+          const artistName = document.createElement("span");
           artistName.textContent = artist.name;
           artistElement.appendChild(artistName);
 
-          artistElement.addEventListener('click', () =>
+          artistElement.addEventListener("click", () =>
             addArtistToRoster(artist)
           );
           searchResults.appendChild(artistElement);
@@ -313,12 +350,12 @@
         const artistName = artist.name;
         const artistImage = artist.images[0]
           ? artist.images[0].url
-          : 'https://via.placeholder.com/50';
+          : "https://via.placeholder.com/50";
         const artistLink = artist.external_urls.spotify;
 
         // Check for duplicate artists
         if (isDuplicateArtist(artistName)) {
-          showError('This artist is already in your roster.');
+          showError("This artist is already in your roster.");
           return;
         }
 
@@ -333,69 +370,69 @@
         } else if (isSlotEmpty(slots.slot1M)) {
           fillRosterSlot(slots.slot1M, artistName, artistImage, artistLink);
         } else {
-          showError('All slots are full');
+          showError("All slots are full");
         }
       }
 
       function isSlotEmpty(slot) {
-        return slot.querySelector('img') === null;
+        return slot.querySelector("img") === null;
       }
 
       function isDuplicateArtist(artistName) {
         return Object.values(slots).some((slot) => {
-          const nameElem = slot.querySelector('div');
+          const nameElem = slot.querySelector("div");
           return nameElem && nameElem.textContent === artistName;
         });
       }
 
       function fillRosterSlot(slot, artistName, artistImage, artistLink) {
-        slot.innerHTML = '';
-        const img = document.createElement('img');
+        slot.innerHTML = "";
+        const img = document.createElement("img");
         img.src = artistImage;
-        img.style.width = '50px';
-        img.style.height = '50px';
+        img.style.width = "50px";
+        img.style.height = "50px";
         slot.appendChild(img);
 
-        const name = document.createElement('div');
+        const name = document.createElement("div");
         name.textContent = artistName;
-        name.setAttribute('data-link', artistLink); // Store the artist link
+        name.setAttribute("data-link", artistLink); // Store the artist link
         slot.appendChild(name);
 
-        const removeBtn = document.createElement('button');
-        removeBtn.textContent = 'Remove';
-        removeBtn.classList.add('remove-btn');
-        removeBtn.addEventListener('click', () => {
-          slot.innerHTML = '';
+        const removeBtn = document.createElement("button");
+        removeBtn.textContent = "Remove";
+        removeBtn.classList.add("remove-btn");
+        removeBtn.addEventListener("click", () => {
+          slot.innerHTML = "";
           hideError();
         });
         slot.appendChild(removeBtn);
       }
 
       function getArtistInfo(slot) {
-        const img = slot.querySelector('img');
-        const nameElem = slot.querySelector('div');
+        const img = slot.querySelector("img");
+        const nameElem = slot.querySelector("div");
         return {
-          imageUrl: img ? img.src : '',
-          name: nameElem ? nameElem.textContent : '',
-          link: nameElem ? nameElem.getAttribute('data-link') : '', // Get the artist link
+          imageUrl: img ? img.src : "",
+          name: nameElem ? nameElem.textContent : "",
+          link: nameElem ? nameElem.getAttribute("data-link") : "", // Get the artist link
         };
       }
 
       function showError(message) {
         errorMessage.textContent = message;
-        errorMessage.style.display = 'block';
+        errorMessage.style.display = "block";
       }
 
       function hideError() {
-        errorMessage.style.display = 'none';
+        errorMessage.style.display = "none";
       }
 
       function showLoadingMessage() {
-        loadingMessage.style.display = 'block';
+        loadingMessage.style.display = "block";
       }
 
       function hideLoadingMessage() {
-        loadingMessage.style.display = 'none';
+        loadingMessage.style.display = "none";
       }
 
       function submitRoster() {
@@ -405,12 +442,12 @@
         const teamName = teamNameInput.value.trim();
         if (!teamName) {
           hideLoadingMessage();
-          showError('Please enter a team name');
+          showError("Please enter a team name");
           return;
         }
 
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeamName?teamname=' +
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeamName?teamname=" +
             teamName
         )
           .then((response) => response.json())
@@ -418,7 +455,7 @@
             if (data.exists) {
               hideLoadingMessage();
               showError(
-                'This team name is already taken. Please choose a different name.'
+                "This team name is already taken. Please choose a different name."
               );
             } else {
               proceedWithRosterSubmission(teamName);
@@ -426,8 +463,8 @@
           })
           .catch((error) => {
             hideLoadingMessage();
-            console.error('Error checking team name:', error);
-            showError('Error checking team name. Please try again.');
+            console.error("Error checking team name:", error);
+            showError("Error checking team name. Please try again.");
           });
       }
 
@@ -442,23 +479,23 @@
 
         // Check if all slots are filled
         const allSlotsFilled = Object.values(artists).every(
-          (artist) => artist.name !== '' && artist.link !== ''
+          (artist) => artist.name !== "" && artist.link !== ""
         );
 
         if (!allSlotsFilled) {
           hideLoadingMessage();
-          showError('Please fill all the slots before submitting your team');
+          showError("Please fill all the slots before submitting your team");
           return;
         }
 
-        const email = localStorage.getItem('userEmail');
+        const email = localStorage.getItem("userEmail");
 
         fetch(
-          'https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validate',
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validate",
           {
-            method: 'POST',
+            method: "POST",
             headers: {
-              'Content-Type': 'application/json',
+              "Content-Type": "application/json",
             },
             body: JSON.stringify({ email, teamname: teamName, artists }),
           }
@@ -466,32 +503,32 @@
           .then((response) => response.json())
           .then((data) => {
             hideLoadingMessage();
-            if (data.status === 'success') {
-              window.location.href = 'roster.html';
+            if (data.status === "success") {
+              window.location.href = "roster.html";
             } else {
-              showError(data.issues.map((issue) => issue.message).join('\n'));
+              showError(data.issues.map((issue) => issue.message).join("\n"));
             }
           })
           .catch((error) => {
             hideLoadingMessage();
-            console.error('Error submitting roster:', error);
-            showError('Error submitting roster. Please try again.');
+            console.error("Error submitting roster:", error);
+            showError("Error submitting roster. Please try again.");
           });
       }
 
-      submitBtn.addEventListener('click', submitRoster);
+      submitBtn.addEventListener("click", submitRoster);
 
       // Back to Top functionality
-      window.addEventListener('scroll', () => {
+      window.addEventListener("scroll", () => {
         if (window.scrollY > 200) {
-          backToTopBtn.style.display = 'block';
+          backToTopBtn.style.display = "block";
         } else {
-          backToTopBtn.style.display = 'none';
+          backToTopBtn.style.display = "none";
         }
       });
 
-      backToTopBtn.addEventListener('click', () => {
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      backToTopBtn.addEventListener("click", () => {
+        window.scrollTo({ top: 0, behavior: "smooth" });
       });
     </script>
   </body>
