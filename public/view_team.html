@@ -23,7 +23,7 @@
         text-align: center;
       }
       .header {
-        background-color: #1db954;
+        background-color: #f44336;
         color: white;
         padding: 10px;
         border-radius: 8px 8px 0 0;
@@ -63,7 +63,7 @@
       }
       .back-btn {
         padding: 10px 20px;
-        background-color: #1db954;
+        background-color: #f44336;
         color: white;
         border: none;
         border-radius: 4px;
@@ -85,8 +85,8 @@
 
     <script>
       const urlParams = new URLSearchParams(window.location.search);
-      const teamName = urlParams.get('teamname');
-      document.getElementById('teamName').textContent = teamName;
+      const teamName = urlParams.get("teamname");
+      document.getElementById("teamName").textContent = teamName;
 
       fetch(
         `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getTeamByName?teamname=${teamName}`
@@ -96,36 +96,36 @@
           if (data.hasTeam) {
             displayRoster(data.team);
           } else {
-            document.getElementById('roster').innerHTML =
-              '<p>Team not found.</p>';
+            document.getElementById("roster").innerHTML =
+              "<p>Team not found.</p>";
           }
         })
         .catch((error) => {
-          console.error('Error fetching team data:', error);
-          document.getElementById('roster').innerHTML =
-            '<p>Error loading team data.</p>';
+          console.error("Error fetching team data:", error);
+          document.getElementById("roster").innerHTML =
+            "<p>Error loading team data.</p>";
         });
 
       function displayRoster(team) {
-        const rosterContainer = document.getElementById('roster');
-        rosterContainer.innerHTML = '';
+        const rosterContainer = document.getElementById("roster");
+        rosterContainer.innerHTML = "";
         const artists = team.artists;
 
         // Order slots correctly: artist_100k, artist_250k_1, artist_250k_2, artist_250k_3, artist_1m
         const slotOrder = [
-          'artist_100k',
-          'artist_250k_1',
-          'artist_250k_2',
-          'artist_250k_3',
-          'artist_1m',
+          "artist_100k",
+          "artist_250k_1",
+          "artist_250k_2",
+          "artist_250k_3",
+          "artist_1m",
         ];
 
         const slotLabels = {
-          artist_100k: '100K',
-          artist_250k_1: '250K',
-          artist_250k_2: '250K',
-          artist_250k_3: '250K',
-          artist_1m: '1M',
+          artist_100k: "100K",
+          artist_250k_1: "250K",
+          artist_250k_2: "250K",
+          artist_250k_3: "250K",
+          artist_1m: "1M",
         };
 
         slotOrder.forEach((slotKey) => {
@@ -136,35 +136,35 @@
               artists[artistCode].slot === slotKey
             ) {
               const artist = artists[artistCode];
-              const artistElement = document.createElement('div');
-              artistElement.classList.add('roster-slot');
+              const artistElement = document.createElement("div");
+              artistElement.classList.add("roster-slot");
 
-              const artistImage = document.createElement('img');
-              artistImage.classList.add('artist-image');
+              const artistImage = document.createElement("img");
+              artistImage.classList.add("artist-image");
               artistImage.src = artist.imageUrl
                 ? artist.imageUrl
-                : 'https://via.placeholder.com/100';
+                : "https://via.placeholder.com/100";
               artistElement.appendChild(artistImage);
 
-              const artistName = document.createElement('div');
-              artistName.classList.add('artist-name');
+              const artistName = document.createElement("div");
+              artistName.classList.add("artist-name");
               artistName.textContent = artist.name;
               artistElement.appendChild(artistName);
 
-              const artistSlot = document.createElement('div');
+              const artistSlot = document.createElement("div");
               artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
               artistElement.appendChild(artistSlot);
 
-              const artistListeners = document.createElement('div');
-              artistListeners.classList.add('artist-listeners');
+              const artistListeners = document.createElement("div");
+              artistListeners.classList.add("artist-listeners");
               const dates = Object.keys(artist)
                 .filter(
                   (key) =>
-                    key !== 'name' &&
-                    key !== 'imageUrl' &&
-                    key !== 'link' &&
-                    key !== 'active_flg' &&
-                    key !== 'slot'
+                    key !== "name" &&
+                    key !== "imageUrl" &&
+                    key !== "link" &&
+                    key !== "active_flg" &&
+                    key !== "slot"
                 )
                 .sort();
               const baselineDate = dates[0];
