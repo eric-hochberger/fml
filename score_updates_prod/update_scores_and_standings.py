@@ -76,26 +76,32 @@ def calculate_percentage_difference_with_loyalty(df):
     for artist_code in df['artist_code'].unique():
         artist_df = df[df['artist_code'] == artist_code]
         
-        min_date = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns.min()
-        max_date = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns.max()
+        # Get all the dates that have listener counts for this artist
+        listener_dates = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns
+        relevant_dates = listener_dates[artist_df[listener_dates].notnull().any()]
         
-        min_listeners = artist_df[min_date].values[0] if min_date else 0
-        max_listeners = artist_df[max_date].values[0] if max_date else 0
-        
-        if min_listeners == 0:
-            percentage_diff = 0
-        else:
-            percentage_diff = (max_listeners - min_listeners) / min_listeners * 100
-        
-        weeks_retained = artist_df['weeks_retained'].values[0] if 'weeks_retained' in artist_df else 0
-        loyalty_multiplier = 1 + 0.05 * weeks_retained
-        
-        if percentage_diff > 0:
-            adjusted_diff = percentage_diff * loyalty_multiplier
-        else:
-            adjusted_diff = percentage_diff
-        
-        adjusted_diffs.append(adjusted_diff)
+        if not relevant_dates.empty:
+            min_date = relevant_dates.min()  # Earliest date with data
+            max_date = relevant_dates.max()  # Latest date with data
+            
+            min_listeners = artist_df[min_date].values[0]
+            max_listeners = artist_df[max_date].values[0]
+            
+            # Ensure both min and max listeners are valid numbers
+            if min_listeners and max_listeners and min_listeners != 0:
+                percentage_diff = (max_listeners - min_listeners) / min_listeners * 100
+            else:
+                percentage_diff = 0
+            
+            weeks_retained = artist_df['weeks_retained'].values[0] if 'weeks_retained' in artist_df else 0
+            loyalty_multiplier = 1 + 0.05 * weeks_retained
+            
+            if percentage_diff > 0:
+                adjusted_diff = percentage_diff * loyalty_multiplier
+            else:
+                adjusted_diff = percentage_diff
+            
+            adjusted_diffs.append(adjusted_diff)
     
     # Return the mean of all adjusted percentage differences
     return np.nanmean(adjusted_diffs)
