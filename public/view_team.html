@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>View Team Roster</title>
+    <link rel="icon" type="image/png" href="/public/images/playandrlogo.png" />
     <style>
       body {
         font-family: Arial, sans-serif;
@@ -37,7 +38,7 @@
       }
       .roster-slot {
         width: 150px;
-        height: 200px;
+        height: auto;
         border: 1px solid #ccc;
         margin: 10px;
         display: flex;
@@ -75,7 +76,7 @@
   <body>
     <div class="container">
       <div class="header">
-        <h1 id="teamName">Team Roster</h1>
+        <h1 id="teamName">View Team Roster</h1>
       </div>
       <div id="roster" class="roster"></div>
       <button class="back-btn" onclick="window.location.href='roster.html'">
@@ -83,99 +84,186 @@
       </button>
     </div>
 
-    <script>
-      const urlParams = new URLSearchParams(window.location.search);
-      const teamName = urlParams.get("teamname");
-      document.getElementById("teamName").textContent = teamName;
+    <script type="module">
+      import { auth, db } from "./firebaseConfig.js?v=1.2";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        getDoc,
+        doc,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-      fetch(
-        `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getTeamByName?teamname=${teamName}`
-      )
-        .then((response) => response.json())
-        .then((data) => {
-          if (data.hasTeam) {
-            displayRoster(data.team);
+      let userEmail = null;
+      let teamId = null;
+      let leagueId = null;
+
+      function getUrlParameter(name) {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get(name);
+      }
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = "index.html";
+        } else {
+          userEmail = user.email;
+          teamId = localStorage.getItem("selectedTeamId");
+          leagueId = localStorage.getItem("selectedLeagueId");
+
+          console.log("Retrieved Team ID:", teamId);
+          console.log("Retrieved League ID from localStorage:", leagueId);
+
+          if (!teamId || !leagueId) {
+            alert("No team or league selected. Redirecting to My Teams.");
+            window.location.href = "my_teams.html";
           } else {
-            document.getElementById("roster").innerHTML =
-              "<p>Team not found.</p>";
+            await fetchTeamData();
           }
-        })
-        .catch((error) => {
+        }
+      });
+
+      async function fetchTeamData() {
+        try {
+          const teamDoc = await getDoc(doc(db, "teams", teamId));
+          if (teamDoc.exists()) {
+            const teamData = teamDoc.data();
+            document.getElementById("teamName").textContent = teamData.teamname;
+            displayRoster(teamData);
+          } else {
+            alert("Team not found. Redirecting to My Teams.");
+            window.location.href = "my_teams.html";
+          }
+        } catch (error) {
           console.error("Error fetching team data:", error);
           document.getElementById("roster").innerHTML =
             "<p>Error loading team data.</p>";
-        });
+        }
+      }
 
-      function displayRoster(team) {
+      async function displayRoster(team) {
         const rosterContainer = document.getElementById("roster");
         rosterContainer.innerHTML = "";
+
+        if (!team.artists || Object.keys(team.artists).length === 0) {
+          rosterContainer.textContent = "No artists found in your roster.";
+          return;
+        }
+
         const artists = team.artists;
+        console.log("Artists Data:", artists);
 
-        // Order slots correctly: artist_100k, artist_250k_1, artist_250k_2, artist_250k_3, artist_1m
-        const slotOrder = [
-          "artist_100k",
-          "artist_250k_1",
-          "artist_250k_2",
-          "artist_250k_3",
-          "artist_1m",
-        ];
+        // Updated slot ordering and labels to match your data
+        const slotOrder = ["slot_1", "slot_2", "slot_3", "slot_4", "slot_5"];
 
-        const slotLabels = {
-          artist_100k: "100K",
-          artist_250k_1: "250K",
-          artist_250k_2: "250K",
-          artist_250k_3: "250K",
-          artist_1m: "1M",
-        };
+        try {
+          // Get league rules for thresholds
+          const leagueDocRef = doc(db, "leagues", leagueId);
+          const leagueDoc = await getDoc(leagueDocRef);
 
-        slotOrder.forEach((slotKey) => {
-          for (const artistCode in artists) {
-            if (
-              artists.hasOwnProperty(artistCode) &&
-              artists[artistCode].active_flg === 1 &&
-              artists[artistCode].slot === slotKey
-            ) {
-              const artist = artists[artistCode];
-              const artistElement = document.createElement("div");
-              artistElement.classList.add("roster-slot");
+          if (leagueDoc.exists()) {
+            const leagueData = leagueDoc.data();
+            console.log("League Data:", leagueData);
 
-              const artistImage = document.createElement("img");
-              artistImage.classList.add("artist-image");
-              artistImage.src = artist.imageUrl
-                ? artist.imageUrl
-                : "https://via.placeholder.com/100";
-              artistElement.appendChild(artistImage);
-
-              const artistName = document.createElement("div");
-              artistName.classList.add("artist-name");
-              artistName.textContent = artist.name;
-              artistElement.appendChild(artistName);
-
-              const artistSlot = document.createElement("div");
-              artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
-              artistElement.appendChild(artistSlot);
-
-              const artistListeners = document.createElement("div");
-              artistListeners.classList.add("artist-listeners");
-              const dates = Object.keys(artist)
-                .filter(
-                  (key) =>
-                    key !== "name" &&
-                    key !== "imageUrl" &&
-                    key !== "link" &&
-                    key !== "active_flg" &&
-                    key !== "slot"
-                )
-                .sort();
-              const baselineDate = dates[0];
-              const mostRecentDate = dates[dates.length - 1];
-              artistListeners.textContent = `Baseline: ${artist[baselineDate]} monthly listeners\nMost Recent: ${artist[mostRecentDate]} monthly listeners`;
-              artistElement.appendChild(artistListeners);
-
-              rosterContainer.appendChild(artistElement);
+            if (!leagueData.listenerThresholds) {
+              console.error("Listener thresholds are not defined.");
+              rosterContainer.textContent =
+                "Listener thresholds are not available.";
+              return;
             }
+
+            const listenerThresholds = leagueData.listenerThresholds;
+            console.log("Listener Thresholds:", listenerThresholds);
+
+            // Create slot labels with thresholds
+            const slotLabels = {};
+            slotOrder.forEach((slot) => {
+              const threshold = listenerThresholds[slot];
+              slotLabels[slot] = threshold
+                ? `Under ${formatNumberWithCommas(threshold)} Listeners`
+                : `Slot ${slot.split("_")[1]}`;
+            });
+
+            // Continue with roster display using new labels
+            slotOrder.forEach((slotKey) => {
+              for (const artistCode in artists) {
+                if (
+                  artists.hasOwnProperty(artistCode) &&
+                  artists[artistCode].active_flg === 1 &&
+                  artists[artistCode].slot === slotKey
+                ) {
+                  const artist = artists[artistCode];
+                  const artistElement = document.createElement("div");
+                  artistElement.classList.add("roster-slot");
+
+                  // Add artist image
+                  if (artist.imageUrl) {
+                    const artistImage = document.createElement("img");
+                    artistImage.src = artist.imageUrl;
+                    artistImage.alt = artist.name;
+                    artistImage.classList.add("artist-image");
+                    artistElement.appendChild(artistImage);
+                  }
+
+                  // Add artist details
+                  const artistName = document.createElement("div");
+                  artistName.textContent = artist.name;
+                  artistElement.appendChild(artistName);
+
+                  const artistSlot = document.createElement("div");
+                  artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
+                  artistElement.appendChild(artistSlot);
+
+                  // Add listener counts
+                  const dateKeys = Object.keys(artist).filter(
+                    (key) => !isNaN(Date.parse(key))
+                  );
+                  if (dateKeys.length > 0) {
+                    dateKeys.sort();
+                    const baselineCount = artist[dateKeys[0]];
+                    let recentCount = artist[dateKeys[dateKeys.length - 1]];
+
+                    // Find the most recent non-null listener count
+                    if (recentCount === null) {
+                      for (let i = dateKeys.length - 1; i >= 0; i--) {
+                        if (artist[dateKeys[i]] !== null) {
+                          recentCount = artist[dateKeys[i]];
+                          break;
+                        }
+                      }
+                    }
+
+                    const listenerInfo = document.createElement("div");
+                    listenerInfo.innerHTML = `
+                      <p>Baseline Listeners Count: ${formatNumberWithCommas(
+                        baselineCount
+                      )}</p>
+                      <p>Most Recent Listeners Count: ${
+                        recentCount !== null
+                          ? formatNumberWithCommas(recentCount)
+                          : "No data available"
+                      }</p>
+                    `;
+                    artistElement.appendChild(listenerInfo);
+                  }
+
+                  rosterContainer.appendChild(artistElement);
+                }
+              }
+            });
+          } else {
+            console.error("League document does not exist.");
+            rosterContainer.textContent = "League not found.";
           }
-        });
+        } catch (error) {
+          console.error(
+            "Error fetching league rules or displaying roster:",
+            error
+          );
+          rosterContainer.textContent = "Error loading roster.";
+        }
+      }
+
+      function formatNumberWithCommas(x) {
+        return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       }
     </script>
   </body>

@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Create League</title>
+    <style>
+      body {
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background-color: #ffffff;
+        color: #333333;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: center;
+        margin: 0;
+        padding: 20px;
+      }
+      h1 {
+        font-size: 32px;
+        margin-bottom: 20px;
+        color: #333333;
+      }
+      form {
+        width: 100%;
+        max-width: 500px;
+      }
+      label {
+        display: block;
+        margin-bottom: 5px;
+        font-weight: bold;
+      }
+      input[type="text"],
+      input[type="password"],
+      input[type="number"],
+      select {
+        width: 100%;
+        padding: 10px;
+        margin-bottom: 15px;
+        border: 1px solid #ccc;
+        border-radius: 5px;
+      }
+      .password-field {
+        display: none;
+      }
+      button {
+        padding: 12px 24px;
+        background-color: #151414;
+        color: #ffffff;
+        border: none;
+        border-radius: 25px;
+        font-size: 18px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      button:hover {
+        background-color: #333333;
+      }
+      .back-btn {
+        margin-top: 20px;
+        text-decoration: none;
+        color: #4285f4;
+        font-weight: bold;
+      }
+      .error-message {
+        color: red;
+        margin-bottom: 15px;
+      }
+      .success-message {
+        color: green;
+        margin-bottom: 15px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Create a New League</h1>
+    <form id="createLeagueForm">
+      <label for="leagueName">League Name</label>
+      <input
+        type="text"
+        id="leagueName"
+        placeholder="Enter league name"
+        required
+      />
+
+      <!-- League Type Dropdown -->
+      <label for="leagueType">League Type</label>
+      <select id="leagueType" required>
+        <option value="public">Public</option>
+        <option value="private">Private</option>
+      </select>
+
+      <!-- Password Field (shown when Private is selected) -->
+      <div id="passwordField" class="password-field">
+        <label for="password">League Password</label>
+        <input type="password" id="password" placeholder="Enter password" />
+        <input type="checkbox" id="togglePassword" /> Show Password
+      </div>
+
+      <!-- Add these fields after the league type/password fields and before the listener thresholds -->
+      <label for="startDate">League Start Date</label>
+      <input type="date" id="startDate" required min="2024-01-01" />
+
+      <label for="endDate">League End Date</label>
+      <input type="date" id="endDate" required min="2024-01-01" />
+
+      <!-- Slot Thresholds -->
+      <label for="slot1"
+        >Max. # of Listeners the Artist Can Have to Qualify for Slot 1</label
+      >
+      <input type="text" id="slot1" placeholder="e.g., 50,000" required />
+
+      <label for="slot2"
+        >Max. # of Listeners the Artist Can Have to Qualify for Slot 2</label
+      >
+      <input type="text" id="slot2" placeholder="e.g., 100,000" required />
+
+      <label for="slot3"
+        >Max. # of Listeners the Artist Can Have to Qualify for Slot 3</label
+      >
+      <input type="text" id="slot3" placeholder="e.g., 250,000" required />
+
+      <label for="slot4"
+        >Max. # of Listeners the Artist Can Have to Qualify for Slot 4</label
+      >
+      <input type="text" id="slot4" placeholder="e.g., 500,000" required />
+
+      <label for="slot5"
+        >Max. # of Listeners the Artist Can Have to Qualify for Slot 5</label
+      >
+      <input type="text" id="slot5" placeholder="e.g., 1,000,000" required />
+
+      <div class="error-message" id="errorMessage"></div>
+      <div class="success-message" id="successMessage"></div>
+
+      <button type="submit">Create League</button>
+    </form>
+    <a href="league_selection.html" class="back-btn">Back to Selection</a>
+
+    <script src="firebaseConfig.js?v=1.2" type="module"></script>
+
+    <script type="module">
+      import { auth } from "./firebaseConfig.js?v=1.2";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+
+      let userEmail = null;
+
+      onAuthStateChanged(auth, (user) => {
+        if (!user) {
+          window.location.href = "index.html";
+        } else {
+          userEmail = user.email;
+          console.log("User is signed in:", userEmail);
+        }
+      });
+
+      const leagueTypeSelect = document.getElementById("leagueType");
+      const passwordField = document.getElementById("passwordField");
+      const passwordInput = document.getElementById("password");
+      const createLeagueForm = document.getElementById("createLeagueForm");
+      const errorMessageDiv = document.getElementById("errorMessage");
+      const successMessageDiv = document.getElementById("successMessage");
+
+      leagueTypeSelect.addEventListener("change", function () {
+        if (this.value === "public") {
+          passwordField.style.display = "none";
+          passwordInput.value = "";
+        } else {
+          passwordField.style.display = "block";
+        }
+      });
+
+      // Function to format numbers with commas
+      function formatNumberWithCommas(value) {
+        const cleanedValue = value.replace(/,/g, "");
+        if (isNaN(cleanedValue)) {
+          return "";
+        }
+        return cleanedValue.replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      // Function to remove commas for parsing
+      function parseNumber(value) {
+        return parseInt(value.replace(/,/g, ""), 10);
+      }
+
+      // Add event listeners to threshold inputs
+      const slotInputs = ["slot1", "slot2", "slot3", "slot4", "slot5"];
+      slotInputs.forEach((slotId) => {
+        const input = document.getElementById(slotId);
+        input.addEventListener("input", (e) => {
+          const formattedValue = formatNumberWithCommas(e.target.value);
+          e.target.value = formattedValue;
+        });
+      });
+
+      createLeagueForm.addEventListener("submit", async (event) => {
+        event.preventDefault();
+
+        // Clear previous messages
+        errorMessageDiv.textContent = "";
+        successMessageDiv.textContent = "";
+
+        const leagueName = document.getElementById("leagueName").value.trim();
+        const leagueType = leagueTypeSelect.value;
+        const isPublic = leagueType === "public";
+        const password = passwordInput.value;
+        const startDate = document.getElementById("startDate").value;
+        const endDate = document.getElementById("endDate").value;
+
+        // Date validation
+        const start = new Date(startDate);
+        const end = new Date(endDate);
+        const today = new Date();
+
+        if (start < today) {
+          errorMessageDiv.textContent = "Start date cannot be in the past.";
+          return;
+        }
+
+        if (end <= start) {
+          errorMessageDiv.textContent = "End date must be after start date.";
+          return;
+        }
+
+        const listenerThresholds = {
+          slot_1: parseNumber(document.getElementById("slot1").value),
+          slot_2: parseNumber(document.getElementById("slot2").value),
+          slot_3: parseNumber(document.getElementById("slot3").value),
+          slot_4: parseNumber(document.getElementById("slot4").value),
+          slot_5: parseNumber(document.getElementById("slot5").value),
+        };
+
+        // Input validation
+        if (!leagueName) {
+          errorMessageDiv.textContent = "Please enter a league name.";
+          return;
+        }
+        if (!isPublic && !password) {
+          errorMessageDiv.textContent =
+            "Please enter a password for your private league.";
+          return;
+        }
+
+        // Validate thresholds are numbers
+        for (let i = 1; i <= 5; i++) {
+          const threshold = listenerThresholds[`slot_${i}`];
+          if (isNaN(threshold) || threshold <= 0) {
+            errorMessageDiv.textContent = `Please enter a valid number for Slot ${i}.`;
+            return;
+          }
+        }
+
+        // Prepare data to send to the server
+        const data = {
+          leagueName,
+          creatorEmail: userEmail,
+          isPublic,
+          password,
+          listenerThresholds,
+          startDate,
+          endDate,
+          pending_members: [userEmail],
+        };
+
+        console.log("Data being sent to server:", data);
+
+        try {
+          const response = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/createLeague",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify(data),
+            }
+          );
+
+          const result = await response.json();
+          if (result.status === "success") {
+            localStorage.setItem("leagueId", result.leagueId);
+            window.location.href = "search.html"; // Redirect to roster creation
+          } else {
+            errorMessageDiv.textContent =
+              result.message || "Error creating league.";
+          }
+        } catch (error) {
+          console.error("Error creating league:", error);
+          errorMessageDiv.textContent =
+            "An error occurred while creating the league.";
+        }
+      });
+
+      const togglePassword = document.getElementById("togglePassword");
+      togglePassword.addEventListener("change", function () {
+        const passwordInput = document.getElementById("password");
+        if (this.checked) {
+          passwordInput.type = "text";
+        } else {
+          passwordInput.type = "password";
+        }
+      });
+    </script>
+  </body>
+</html>

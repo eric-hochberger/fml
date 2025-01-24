@@ -17,3 +17,9 @@ TODO.md
 copy_data.py
 
 playlist_updates.py
+
+.firebaserc
+
+.cache
+
+.DS_Store
