@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>Fantasy Music League</title>
+    <link rel="icon" type="image/png" href="/public/images/playandrlogo.png" />
     <style>
       body {
         font-family: "Helvetica Neue", Arial, sans-serif;
@@ -20,10 +21,18 @@
         margin-bottom: 10px;
         color: #333333;
       }
+      .site-logo {
+        width: 400px; /* Increase size as needed */
+        height: auto;
+        margin-right: 10px;
+        vertical-align: middle; /* Align with text */
+      }
       .subtitle {
         font-size: 18px;
         color: #666666;
         margin-bottom: 30px;
+        text-align: center;
+        max-width: 600px;
       }
       .google-btn {
         display: inline-flex;
@@ -46,12 +55,29 @@
         margin-right: 10px;
       }
       .google-btn:hover {
-        background-color: #151414;
+        background-color: #333333;
+      }
+      .header {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        width: 100%;
+        margin-bottom: 20px;
+      }
+      .site-logo {
+        width: 200px; /* Adjust size as needed */
+        height: auto;
       }
     </style>
   </head>
   <body>
-    <h1>Fantasy Music League</h1>
+    <div class="header">
+      <img
+        src="/public/images/playandrlogo.png"
+        alt="Site Logo"
+        class="site-logo"
+      />
+    </div>
     <div class="subtitle">
       Draft a roster of artists and compete to see if you have the best eye for
       talent!
@@ -67,12 +93,43 @@
     <script src="firebaseConfig.js?v=1.2" type="module"></script>
 
     <script type="module">
-      // Import the functions you need from the SDKs you need
-      import { auth } from "./firebaseConfig.js?v=1.2";
+      import { auth, db } from "./firebaseConfig.js?v=1.2";
       import {
         signInWithPopup,
         GoogleAuthProvider,
+        onAuthStateChanged,
       } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        doc,
+        getDoc,
+        query,
+        collection,
+        where,
+        getDocs,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+      // Check if user is already signed in
+      onAuthStateChanged(auth, async (user) => {
+        if (user) {
+          // User is signed in, check if they have a team
+          const email = user.email;
+          const teamsRef = collection(db, "teams");
+          const q = query(teamsRef, where("userEmail", "==", email));
+
+          try {
+            const querySnapshot = await getDocs(q);
+            if (!querySnapshot.empty) {
+              // User has at least one team
+              window.location.href = "my_teams.html";
+            } else {
+              // User doesn't have a team, redirect to league selection
+              window.location.href = "league_selection.html";
+            }
+          } catch (error) {
+            console.error("Error checking for user teams:", error);
+          }
+        }
+      });
 
       // Google Sign-In
       const googleSignInBtn = document.getElementById("googleSignInBtn");
@@ -82,23 +139,25 @@
           .then((result) => {
             const user = result.user;
             console.log("User signed in:", user);
-            localStorage.setItem("userEmail", user.email); // Store the user's email in localStorage
-            alert(`Welcome ${user.displayName} (${user.email})!`);
-            // Check if the user already has a team
-            return fetch(
-              `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${user.email}`
-            );
+
+            // Check for teams after sign-in
+            const email = user.email;
+            const teamsRef = collection(db, "teams");
+            const q = query(teamsRef, where("userEmail", "==", email));
+
+            return getDocs(q);
           })
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.hasTeam) {
-              window.location.href = "roster.html";
+          .then((querySnapshot) => {
+            if (!querySnapshot.empty) {
+              // User has at least one team
+              window.location.href = "my_teams.html";
             } else {
-              window.location.href = "search.html";
+              // No team found, redirect to league selection
+              window.location.href = "league_selection.html";
             }
           })
           .catch((error) => {
-            console.error("Error:", error);
+            console.error("Error during sign-in:", error);
             alert(`Error: ${error.message}`);
           });
       });

@@ -112,11 +112,41 @@ def update_firestore():
     docs = teams_ref.stream()
 
     current_date = datetime.now().strftime('%Y-%m-%d')
-    league = {}
+    
+    # Dictionary to hold league data
+    leagues = {}
 
     for doc in docs:
         team_data = doc.to_dict()
-        print(f"Updating team: {team_data['teamname']}")
+        team_league_id = team_data.get('leagueId')
+        if not team_league_id:
+            continue  # Skip teams without a leagueId
+
+        # Fetch league data
+        league_doc = db.collection('leagues').document(team_league_id).get()
+        if not league_doc.exists:
+            print(f"League {team_league_id} not found.")
+            continue
+
+        league_data = league_doc.to_dict()
+        start_date = league_data.get('startDate')
+        end_date = league_data.get('endDate')
+
+        # Check if startDate and endDate are present
+        if not start_date or not end_date:
+            print(f"Skipping league {team_league_id} due to missing start or end date.")
+            continue
+
+        # Check if current date is within the league's active period
+        if not (start_date <= current_date <= end_date):
+            print(f"Current date {current_date} is not within the league period {start_date} to {end_date}.")
+            continue
+
+        print(f"Updating team: {team_data['teamname']} in league {team_league_id}")
+
+        # Initialize league in leagues dict if not present
+        if team_league_id not in leagues:
+            leagues[team_league_id] = {}
 
         artists_data = []
         for artist_code, artist_info in team_data['artists'].items():
@@ -125,32 +155,39 @@ def update_firestore():
                 team_data['artists'][artist_code][current_date] = monthly_streams
                 print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
 
-            artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-            artist_df['artist_code'] = artist_code
-            artists_data.append(artist_df)
+                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
+                artist_df['artist_code'] = artist_code
+                artists_data.append(artist_df)
         
         if artists_data:
             df = pd.concat(artists_data)
             df = update_weeks_retained(df)
-            league[team_data['teamname']] = df
+            leagues[team_league_id][team_data['teamname']] = df
         
+        # Update team data in Firestore
         teams_ref.document(doc.id).set(team_data)
+    
+    # Now calculate standings per league
+    for league_id, league_teams in leagues.items():
+        standings = []
+        for teamname, df in league_teams.items():
+            score = calculate_percentage_difference_with_loyalty(df)
+            standings.append({'teamname': teamname, 'score': score})
 
-    standings = []
-    for teamname, df in league.items():
-        score = calculate_percentage_difference_with_loyalty(df)
-        standings.append({'teamname': teamname, 'score': score})
-    
-    standings_df = pd.DataFrame(standings)
-    standings_df = standings_df.sort_values(by='score', ascending=False).reset_index(drop=True)
-    
-    for index, row in standings_df.iterrows():
-        standings_ref.document(row['teamname']).set({
-            'teamname': row['teamname'],
-            'score': row['score']
-        })
-    
-    print("Firestore update complete with standings")
+        standings_df = pd.DataFrame(standings)
+        standings_df = standings_df.sort_values(by='score', ascending=False).reset_index(drop=True)
+
+        # Update standings in Firestore under the leagueId
+        standings_doc_ref = standings_ref.document(league_id)
+        standings_data = {
+            'leagueId': league_id,
+            'standings': standings_df.to_dict(orient='records'),
+            'lastUpdated': current_date
+        }
+        standings_doc_ref.set(standings_data)
+        print(f"Updated standings for league {league_id}")
+
+    print("Firestore update complete with standings per league")
 
 if __name__ == '__main__':
     update_firestore()

@@ -2,30 +2,46 @@
 <html>
   <head>
     <title>Your Roster</title>
+    <link rel="icon" type="image/png" href="/public/images/playandrlogo.png" />
     <style>
+      /* Reset default margins and paddings */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Styles */
       body {
         font-family: Arial, sans-serif;
         background-color: #f5f5f5;
-        margin: 0;
-        padding: 0;
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        min-height: 100vh;
-        flex-direction: column;
       }
       .navbar {
         width: 100%;
         background-color: #333;
         overflow: hidden;
         display: flex;
+        align-items: center;
+        padding: 10px;
+        position: relative;
+      }
+      .site-logo {
+        width: 40px;
+        height: auto;
+        position: absolute;
+        left: 10px;
+      }
+      .nav-container {
+        flex-grow: 1;
+        display: flex;
         justify-content: center;
       }
       .nav-tabs {
         list-style-type: none;
+        display: flex;
+        flex-wrap: wrap;
         margin: 0;
         padding: 0;
-        display: flex;
       }
       .nav-tabs li {
         margin-right: 15px;
@@ -53,7 +69,7 @@
         width: 90%;
         max-width: 800px;
         text-align: center;
-        margin-top: 20px;
+        margin: 20px auto;
       }
       .header {
         background-color: #f44336;
@@ -61,6 +77,29 @@
         padding: 10px;
         border-radius: 8px 8px 0 0;
         margin-bottom: 20px;
+      }
+      /* Additional styles */
+      table {
+        width: 100%;
+        border-collapse: collapse;
+        margin-top: 20px;
+      }
+      th,
+      td {
+        padding: 10px;
+        border: 1px solid #ddd;
+        text-align: center;
+      }
+      th {
+        background-color: #f2f2f2;
+      }
+      .highlight {
+        background-color: #c8e6c9;
+      }
+      .team-name-link {
+        color: #1a73e8;
+        text-decoration: underline;
+        cursor: pointer;
       }
       .roster {
         display: flex;
@@ -70,13 +109,11 @@
       }
       .roster-slot {
         width: 150px;
-        height: 200px;
         border: 1px solid #ccc;
         margin: 10px;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
         text-align: center;
         font-size: 14px;
         border-radius: 4px;
@@ -97,23 +134,19 @@
       .artist-listeners {
         color: #555;
         white-space: pre-wrap;
+        word-wrap: break-word;
       }
-      table {
-        width: 100%;
-        border-collapse: collapse;
+      .loading-message {
+        display: none;
+        margin-top: 20px;
+        color: #555;
+      }
+      .error-message {
+        display: none;
+        color: red;
         margin-top: 20px;
       }
-      th,
-      td {
-        padding: 10px;
-        border: 1px solid #ddd;
-      }
-      th {
-        background-color: #f2f2f2;
-      }
-      .highlight {
-        background-color: #c8e6c9;
-      }
+      /* Styles for Add/Drop Section */
       .add-drop-container {
         display: flex;
         justify-content: space-between;
@@ -141,10 +174,19 @@
         margin-top: 10px;
         padding: 5px;
       }
-      .loading-message {
-        display: none;
+      .search-bar {
+        padding: 10px;
+        width: 200px;
         margin-top: 20px;
-        color: #555;
+      }
+      .btn {
+        padding: 10px 20px;
+        background-color: #f44336;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+        margin-top: 10px;
       }
       .results {
         display: flex;
@@ -179,39 +221,40 @@
       .artist-result .artist-name {
         font-weight: bold;
       }
-      .search-bar {
+      .league-end-date {
+        background-color: #f8f9fa;
         padding: 10px;
-        width: 200px;
-        margin-top: 20px;
-      }
-      .btn {
-        padding: 10px 20px;
-        background-color: #f44336;
-        color: white;
-        border: none;
-        border-radius: 4px;
-        cursor: pointer;
-        margin-top: 10px;
-      }
-      .error-message {
-        color: red;
-        margin-top: 20px;
+        margin-bottom: 20px;
+        border-radius: 5px;
+        text-align: center;
+        font-size: 1.1em;
       }
     </style>
   </head>
   <body>
     <nav class="navbar">
-      <ul class="nav-tabs">
-        <li><a href="roster.html" class="active">Roster</a></li>
-        <li><a href="faq.html">FAQ</a></li>
-        <li><a href="privacy_policy.html">Privacy Policy</a></li>
-      </ul>
+      <img
+        src="/public/images/playandrlogo.png"
+        alt="Site Logo"
+        class="site-logo"
+      />
+      <div class="nav-container">
+        <ul class="nav-tabs">
+          <li><a href="my_teams.html" class="active">My Teams</a></li>
+          <li><a href="league_selection.html">Create/Join League</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="privacy_policy.html">Privacy Policy</a></li>
+          <li><a href="#" id="signOutLink">Sign Out</a></li>
+        </ul>
+      </div>
     </nav>
     <div class="container">
       <div class="header">
-        <h1>Your Roster</h1>
+        <h1 id="teamNameHeader">Your Roster</h1>
+        <h2 id="leagueNameHeader"></h2>
       </div>
       <div id="roster" class="roster"></div>
+
       <h2>Team Standings</h2>
       <table>
         <thead>
@@ -220,8 +263,12 @@
             <th>Score</th>
           </tr>
         </thead>
-        <tbody id="standingsBody"></tbody>
+        <tbody id="standingsBody">
+          <!-- Standings will be populated here -->
+        </tbody>
       </table>
+
+      <!-- Add/Drop Section -->
       <div class="add-drop-container">
         <div class="add-drop-slot" id="addSlot">
           Add Artist
@@ -256,6 +303,8 @@
           </button>
         </div>
       </div>
+
+      <!-- Search Bar and Results -->
       <input
         type="text"
         id="searchInput"
@@ -265,14 +314,44 @@
       <button class="btn" id="searchBtn">Search</button>
       <div id="searchResults" class="results"></div>
       <button class="btn" id="submitBtn">Submit Changes</button>
+
       <div id="loadingMessage" class="loading-message">
         Please wait, updating your roster...
       </div>
       <div id="errorMessage" class="error-message"></div>
     </div>
 
-    <script>
+    <!-- Include Firebase and other necessary scripts -->
+    <script src="firebaseConfig.js?v=1.2" type="module"></script>
+    <script type="module">
+      import { auth, db, signOut } from "./firebaseConfig.js?v=1.2";
+      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        getDoc,
+        doc,
+        collection,
+        query,
+        where,
+        getDocs,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+      const signOutLink = document.getElementById("signOutLink");
+
+      signOutLink.addEventListener("click", (e) => {
+        e.preventDefault(); // Prevent navigation
+        signOut(auth)
+          .then(() => {
+            console.log("User signed out successfully");
+            window.location.href = "index.html"; // Redirect to the sign-in page
+          })
+          .catch((error) => {
+            console.error("Error signing out:", error);
+          });
+      });
+
       const rosterContainer = document.getElementById("roster");
+      const teamNameHeader = document.getElementById("teamNameHeader");
+      const leagueNameHeader = document.getElementById("leagueNameHeader");
       const standingsBody = document.getElementById("standingsBody");
       const searchBtn = document.getElementById("searchBtn");
       const searchInput = document.getElementById("searchInput");
@@ -293,144 +372,332 @@
         "removeDropArtistBtn"
       );
 
-      document.addEventListener("DOMContentLoaded", function () {
-        const tabs = document.querySelectorAll(".nav-tabs li a");
-        tabs.forEach((tab) => {
-          if (tab.href === window.location.href) {
-            tab.classList.add("active");
-          }
-        });
+      let userEmail = null;
+      let teamId = null;
+      let leagueId = null;
+      let teamData = null;
+      let userTeamName = null;
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = "index.html";
+        } else {
+          userEmail = user.email;
+          localStorage.setItem("userEmail", userEmail);
+          await fetchTeamData();
+          await fetchStandings();
+        }
       });
 
-      document.addEventListener("DOMContentLoaded", () => {
-        const email = localStorage.getItem("userEmail");
+      async function fetchTeamData() {
+        teamId = localStorage.getItem("selectedTeamId");
+        leagueId = localStorage.getItem("leagueId");
 
-        fetch(
-          `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/checkTeam?email=${email}`
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            if (data.hasTeam) {
-              displayRoster(data.team);
-            } else {
-              rosterContainer.innerHTML = "<p>No team found.</p>";
-            }
-          })
-          .catch((error) => {
-            console.error("Error fetching team data:", error);
-            rosterContainer.innerHTML = "<p>Error loading team data.</p>";
-          });
+        console.log("Team ID:", teamId);
+        console.log("League ID:", leagueId);
 
-        fetch(
-          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getStandings"
-        )
-          .then((response) => response.json())
-          .then((data) => {
-            displayStandings(data, email);
-          })
-          .catch((error) => {
-            console.error("Error fetching standings:", error);
-          });
-      });
+        if (!teamId || !leagueId) {
+          alert("No team selected. Redirecting to My Teams.");
+          window.location.href = "my_teams.html";
+          return;
+        }
 
-      function displayRoster(team) {
-        rosterContainer.innerHTML = "";
-        const artists = team.artists;
+        try {
+          // Fetch team data
+          const teamDocRef = doc(db, "teams", teamId);
+          const teamDoc = await getDoc(teamDocRef);
 
-        const order = [
-          "artist_100k",
-          "artist_250k_1",
-          "artist_250k_2",
-          "artist_250k_3",
-          "artist_1m",
-        ];
-
-        order.forEach((category) => {
-          for (const artistCode in artists) {
-            if (
-              artists.hasOwnProperty(artistCode) &&
-              artists[artistCode].active_flg === 1 &&
-              artists[artistCode].slot === category
-            ) {
-              const artist = artists[artistCode];
-              const artistElement = document.createElement("div");
-              artistElement.classList.add("roster-slot");
-
-              const artistImage = document.createElement("img");
-              artistImage.classList.add("artist-image");
-              artistImage.src = artist.imageUrl
-                ? artist.imageUrl
-                : "https://via.placeholder.com/100";
-              artistElement.appendChild(artistImage);
-
-              const artistName = document.createElement("div");
-              artistName.classList.add("artist-name");
-              artistName.textContent = artist.name;
-              artistElement.appendChild(artistName);
-
-              const artistSlot = document.createElement("div");
-              if (category.startsWith("artist_250k")) {
-                artistSlot.textContent = "250K";
-              } else if (category === "artist_100k") {
-                artistSlot.textContent = "100K";
-              } else if (category === "artist_1m") {
-                artistSlot.textContent = "1M";
-              }
-              artistSlot.classList.add("artist-slot");
-              artistElement.appendChild(artistSlot);
-
-              const artistListeners = document.createElement("div");
-              artistListeners.classList.add("artist-listeners");
-              const dates = Object.keys(artist)
-                .filter(
-                  (key) =>
-                    key !== "name" &&
-                    key !== "imageUrl" &&
-                    key !== "link" &&
-                    key !== "active_flg" &&
-                    key !== "slot"
-                )
-                .sort();
-              const baselineDate = dates[0];
-              const mostRecentDate = dates[dates.length - 1];
-              artistListeners.textContent = `Baseline: ${artist[baselineDate]} monthly listeners\nMost Recent: ${artist[mostRecentDate]} monthly listeners`;
-              artistElement.appendChild(artistListeners);
-
-              rosterContainer.appendChild(artistElement);
-            }
+          if (!teamDoc.exists()) {
+            alert("Team not found. Redirecting to My Teams.");
+            window.location.href = "my_teams.html";
+            return;
           }
-        });
+
+          teamData = teamDoc.data();
+          console.log("Team Data:", teamData);
+
+          userTeamName = teamData.teamname;
+          teamNameHeader.textContent = `Team: ${userTeamName}`;
+
+          // Fetch league data
+          const leagueDocRef = doc(db, "leagues", leagueId);
+          const leagueDoc = await getDoc(leagueDocRef);
+
+          if (leagueDoc.exists()) {
+            const leagueData = leagueDoc.data();
+
+            // Format the end date
+            let leagueInfo = `League: ${leagueData.leagueName}`;
+            if (leagueData.endDate && leagueData.startDate) {
+              const endDate = new Date(leagueData.endDate);
+              const formattedEndDate = endDate.toLocaleDateString();
+              // leagueInfo += ` (ends ${formattedEndDate})`;
+
+              const startDate = new Date(leagueData.startDate);
+              const formattedstartDate = startDate.toLocaleDateString();
+              leagueInfo += ` (${formattedstartDate} - ${formattedEndDate})`;
+            }
+            leagueNameHeader.textContent = leagueInfo;
+          } else {
+            leagueNameHeader.textContent = "League information not found.";
+          }
+
+          displayRoster(teamData);
+        } catch (error) {
+          console.error("Error fetching team or league data:", error);
+          alert("Error fetching team data. Please try again.");
+        }
       }
 
-      function displayStandings(data, userEmail) {
+      async function displayRoster(team) {
+        rosterContainer.innerHTML = "";
+
+        if (!team.artists || Object.keys(team.artists).length === 0) {
+          rosterContainer.textContent = "No artists found in your roster.";
+          return;
+        }
+
+        const artists = team.artists;
+        console.log("Artists Data:", artists);
+
+        // Updated slot ordering and labels to match your data
+        const slotOrder = ["slot_1", "slot_2", "slot_3", "slot_4", "slot_5"];
+
+        try {
+          // Get league rules for thresholds
+          const leagueDocRef = doc(db, "leagues", leagueId);
+          const leagueDoc = await getDoc(leagueDocRef);
+
+          if (leagueDoc.exists()) {
+            const leagueData = leagueDoc.data();
+            console.log("League Data:", leagueData);
+
+            if (!leagueData.listenerThresholds) {
+              console.error("Listener thresholds are not defined.");
+              rosterContainer.textContent =
+                "Listener thresholds are not available.";
+              return;
+            }
+
+            const listenerThresholds = leagueData.listenerThresholds;
+            console.log("Listener Thresholds:", listenerThresholds);
+
+            // Create slot labels with thresholds
+            const slotLabels = {};
+            slotOrder.forEach((slot) => {
+              const threshold = listenerThresholds[slot];
+              slotLabels[slot] = threshold
+                ? `Under ${formatNumberWithCommas(threshold)} Listeners`
+                : `Slot ${slot.split("_")[1]}`;
+            });
+
+            // Continue with roster display using new labels
+            slotOrder.forEach((slotKey) => {
+              for (const artistCode in artists) {
+                if (
+                  artists.hasOwnProperty(artistCode) &&
+                  artists[artistCode].active_flg === 1 &&
+                  artists[artistCode].slot === slotKey
+                ) {
+                  const artist = artists[artistCode];
+                  const artistElement = document.createElement("div");
+                  artistElement.classList.add("roster-slot");
+
+                  // Add artist image
+                  if (artist.imageUrl) {
+                    const artistImage = document.createElement("img");
+                    artistImage.src = artist.imageUrl;
+                    artistImage.alt = artist.name;
+                    artistImage.classList.add("artist-image");
+                    artistElement.appendChild(artistImage);
+                  }
+
+                  // Add artist details
+                  const artistName = document.createElement("div");
+                  artistName.textContent = artist.name;
+                  artistElement.appendChild(artistName);
+
+                  const artistSlot = document.createElement("div");
+                  artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
+                  artistElement.appendChild(artistSlot);
+
+                  // Add listener counts
+                  const dateKeys = Object.keys(artist).filter(
+                    (key) => !isNaN(Date.parse(key))
+                  );
+                  if (dateKeys.length > 0) {
+                    dateKeys.sort();
+                    const baselineCount = artist[dateKeys[0]];
+                    let recentCount = artist[dateKeys[dateKeys.length - 1]];
+
+                    // Find the most recent non-null listener count
+                    if (recentCount === null) {
+                      for (let i = dateKeys.length - 1; i >= 0; i--) {
+                        if (artist[dateKeys[i]] !== null) {
+                          recentCount = artist[dateKeys[i]];
+                          break;
+                        }
+                      }
+                    }
+
+                    const listenerInfo = document.createElement("div");
+                    listenerInfo.innerHTML = `
+                      <p>Baseline Listeners Count: ${formatNumberWithCommas(
+                        baselineCount
+                      )}</p>
+                      <p>Most Recent Listeners Count: ${
+                        recentCount !== null
+                          ? formatNumberWithCommas(recentCount)
+                          : "No data available"
+                      }</p>
+                    `;
+                    artistElement.appendChild(listenerInfo);
+                  }
+
+                  rosterContainer.appendChild(artistElement);
+                }
+              }
+            });
+          } else {
+            console.error("League document does not exist.");
+            rosterContainer.textContent = "League not found.";
+          }
+        } catch (error) {
+          console.error(
+            "Error fetching league rules or displaying roster:",
+            error
+          );
+          rosterContainer.textContent = "Error loading roster.";
+        }
+      }
+
+      function formatNumberWithCommas(value) {
+        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      }
+
+      async function fetchStandings() {
+        if (!leagueId) {
+          console.error("League ID not found.");
+          return;
+        }
+
+        try {
+          // Fetch standings for the league
+          const standingsDocRef = doc(db, "standings", leagueId);
+          const standingsDoc = await getDoc(standingsDocRef);
+
+          if (standingsDoc.exists()) {
+            const standingsData = standingsDoc.data();
+            await displayStandings(standingsData.standings);
+          } else {
+            // Fetch league data to get the start date
+            const leagueDocRef = doc(db, "leagues", leagueId);
+            const leagueDoc = await getDoc(leagueDocRef);
+
+            if (leagueDoc.exists()) {
+              const leagueData = leagueDoc.data();
+              const startDate = new Date(
+                leagueData.startDate
+              ).toLocaleDateString();
+              standingsBody.innerHTML = `
+                <tr>
+                  <td colspan="2">Standings will populate when league starts on ${startDate}.</td>
+                </tr>
+              `;
+            } else {
+              console.warn("League data not found.");
+              standingsBody.innerHTML = `
+                <tr>
+                  <td colspan="2">Standings data not available.</td>
+                </tr>
+              `;
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching standings:", error);
+          standingsBody.innerHTML = `
+            <tr>
+              <td colspan="2">Error loading standings.</td>
+            </tr>
+          `;
+        }
+      }
+
+      async function displayStandings(data) {
         standingsBody.innerHTML = "";
 
-        // Sort standings by score, highest to lowest
-        data.sort((a, b) => b.score - a.score);
+        // Prepare an array of promises to fetch teamIds
+        const teamPromises = data.map(async (team) => {
+          const teamIdForLink = await getTeamIdByNameAndLeague(
+            team.teamname,
+            leagueId
+          );
+          return {
+            teamname: team.teamname,
+            score: team.score,
+            teamIdForLink,
+          };
+        });
 
-        data.forEach((team) => {
+        // Wait for all teamIds to be fetched
+        const teamsWithIds = await Promise.all(teamPromises);
+
+        // Now build the table
+        teamsWithIds.forEach((team) => {
           const row = document.createElement("tr");
-          if (team.email === userEmail) {
+          if (team.teamname === userTeamName) {
             row.classList.add("highlight");
           }
+
           const nameCell = document.createElement("td");
-          nameCell.textContent = team.teamname;
-          nameCell.style.cursor = "pointer";
-          nameCell.style.textDecoration = "underline";
-          nameCell.addEventListener("click", () => {
-            window.location.href = `view_team.html?teamname=${encodeURIComponent(
-              team.teamname
+          const nameLink = document.createElement("a");
+          nameLink.textContent = team.teamname;
+          nameLink.classList.add("team-name-link");
+
+          if (team.teamIdForLink) {
+            nameLink.href = `view_team.html?teamId=${encodeURIComponent(
+              team.teamIdForLink
             )}`;
-          });
+          } else {
+            nameLink.href = "#";
+            nameLink.style.pointerEvents = "none";
+            nameLink.style.color = "gray";
+          }
+
+          nameCell.appendChild(nameLink);
           row.appendChild(nameCell);
 
           const scoreCell = document.createElement("td");
-          scoreCell.textContent = parseFloat(team.score).toFixed(2); // Rounding to 2 decimal places
+          scoreCell.textContent = parseFloat(team.score).toFixed(2);
           row.appendChild(scoreCell);
 
           standingsBody.appendChild(row);
         });
       }
+
+      async function getTeamIdByNameAndLeague(teamname, leagueId) {
+        try {
+          const teamsRef = collection(db, "teams");
+          const q = query(
+            teamsRef,
+            where("teamname", "==", teamname),
+            where("leagueId", "==", leagueId)
+          );
+          const querySnapshot = await getDocs(q);
+          if (!querySnapshot.empty) {
+            const teamDoc = querySnapshot.docs[0];
+            return teamDoc.id;
+          } else {
+            console.error(`Team not found: ${teamname} in league ${leagueId}`);
+            return null;
+          }
+        } catch (error) {
+          console.error("Error fetching teamId:", error);
+          return null;
+        }
+      }
+
+      // Event listeners and functions for Add/Drop functionality
 
       searchBtn.addEventListener("click", searchArtists);
       searchInput.addEventListener("keydown", (event) => {
@@ -439,30 +706,30 @@
         }
       });
 
-      function searchArtists() {
+      async function searchArtists() {
         const query = searchInput.value;
-        fetch(
-          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
-        )
-          .then((response) => response.json())
-          .then((tokenData) => {
-            const accessToken = tokenData.access_token;
-            return fetch(
-              `https://api.spotify.com/v1/search?q=${query}&type=artist`,
-              {
-                headers: {
-                  Authorization: `Bearer ${accessToken}`,
-                },
-              }
-            );
-          })
-          .then((response) => response.json())
-          .then((data) => {
-            displayResults(data);
-          })
-          .catch((error) => {
-            console.error("Error fetching data:", error);
-          });
+        try {
+          const tokenResponse = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getToken"
+          );
+          const tokenData = await tokenResponse.json();
+          const accessToken = tokenData.access_token;
+
+          const searchResponse = await fetch(
+            `https://api.spotify.com/v1/search?q=${encodeURIComponent(
+              query
+            )}&type=artist`,
+            {
+              headers: {
+                Authorization: `Bearer ${accessToken}`,
+              },
+            }
+          );
+          const data = await searchResponse.json();
+          displayResults(data);
+        } catch (error) {
+          console.error("Error fetching data:", error);
+        }
       }
 
       function displayResults(data) {
@@ -511,19 +778,25 @@
         }
       }
 
-      function fillAddSlot(artistName, artistImage, artistLink) {
-        addArtistName.textContent = artistName;
-        addArtistImage.src = artistImage;
+      function fillAddSlot(artistNameText, artistImageUrl, artistLink) {
+        addArtistName.textContent = artistNameText;
+        addArtistImage.src = artistImageUrl;
         addArtistImage.style.display = "block";
         addArtistName.setAttribute("data-link", artistLink);
         removeAddArtistBtn.style.display = "block";
       }
 
-      function fillDropSlot(artistName, artistImage, artistLink) {
-        dropArtistName.textContent = artistName;
-        dropArtistImage.src = artistImage;
+      function fillDropSlot(
+        artistNameText,
+        artistImageUrl,
+        artistLink,
+        artistCode
+      ) {
+        dropArtistName.textContent = artistNameText;
+        dropArtistImage.src = artistImageUrl;
         dropArtistImage.style.display = "block";
         dropArtistName.setAttribute("data-link", artistLink);
+        dropArtistName.setAttribute("data-code", artistCode);
         removeDropArtistBtn.style.display = "block";
       }
 
@@ -541,6 +814,7 @@
         dropArtistImage.src = "";
         dropArtistImage.style.display = "none";
         dropArtistName.removeAttribute("data-link");
+        dropArtistName.removeAttribute("data-code");
         removeDropArtistBtn.style.display = "none";
         hideError();
       });
@@ -562,6 +836,8 @@
         loadingMessage.style.display = "none";
       }
 
+      const selectedTeamID = localStorage.getItem("selectedTeamId");
+
       function submitChanges() {
         hideError();
         showLoadingMessage();
@@ -579,21 +855,18 @@
           return;
         }
 
-        const dropArtistCode = extractArtistCode(dropArtistLink);
-        const addArtistCode = extractArtistCode(addArtistLink);
-
         fetch(
-          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validateAddDrop",
+          "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/validateAddDrop",
           {
             method: "POST",
             headers: {
               "Content-Type": "application/json",
             },
             body: JSON.stringify({
-              email,
-              dropArtistCode,
+              dropArtistLink,
               addArtistLink,
               addArtistImageUrl,
+              selectedTeamID,
             }),
           }
         )
@@ -614,12 +887,6 @@
       }
 
       submitBtn.addEventListener("click", submitChanges);
-
-      function extractArtistCode(url) {
-        const parts = url.split("artist/");
-        if (parts.length < 2) return null;
-        return parts[1].split("?")[0];
-      }
     </script>
   </body>
 </html>

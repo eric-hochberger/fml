@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>My Teams</title>
+    <link rel="icon" type="image/png" href="/public/images/playandrlogo.png" />
+    <style>
+      /* Reset default margins and paddings */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Styles */
+      body {
+        font-family: "Helvetica Neue", Arial, sans-serif;
+        background-color: #f5f5f5;
+        display: flex;
+        align-items: flex-start;
+        flex-direction: column;
+        min-height: 100vh;
+      }
+
+      .navbar {
+        width: 100%;
+        background-color: #333;
+        overflow: hidden;
+        display: flex;
+        align-items: center; /* Align items vertically */
+        padding: 10px; /* Add padding for spacing */
+        position: relative; /* Allow absolute positioning of the logo */
+      }
+
+      .site-logo {
+        width: 40px; /* Adjust size to be slightly less than navbar height */
+        height: auto;
+        position: absolute; /* Position logo absolutely */
+        left: 10px; /* Align logo to the left */
+      }
+
+      .nav-container {
+        flex-grow: 1; /* Allow the container to grow and center the nav items */
+        display: flex;
+        justify-content: center; /* Center nav items */
+      }
+
+      .nav-tabs {
+        list-style-type: none;
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0;
+        padding: 0;
+      }
+
+      .nav-tabs li {
+        margin-right: 15px;
+      }
+
+      .nav-tabs li:last-child {
+        margin-left: auto; /* Pushes the last item to the right */
+      }
+
+      .nav-tabs li a {
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+      }
+
+      .nav-tabs li a:hover {
+        background-color: #ddd;
+        color: black;
+      }
+
+      .nav-tabs li a.active {
+        background-color: #f44336;
+        color: white;
+      }
+
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 100%;
+        max-width: 600px;
+        margin-top: 20px;
+        align-self: center; /* Center the container */
+      }
+
+      .header {
+        color: black;
+        padding: 10px;
+        border-radius: 8px 8px 0 0;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+
+      /* Reset margins on headings */
+      h1,
+      h2 {
+        margin: 0;
+        padding: 0;
+      }
+
+      .team-list {
+        list-style-type: none;
+        padding: 0;
+      }
+
+      .team-item {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: #fff;
+        padding: 15px;
+        margin: 10px 0;
+        border-radius: 4px;
+        border: 1px solid #ddd;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        cursor: pointer;
+        transition: background-color 0.2s;
+      }
+
+      .team-item:hover {
+        background-color: #f0f0f0;
+      }
+
+      .team-name {
+        font-size: 18px;
+      }
+
+      .view-team-btn {
+        padding: 5px 10px;
+        background-color: #e53e3e;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+
+      .loading-message {
+        text-align: center;
+        color: #555;
+      }
+
+      .no-teams-message {
+        text-align: center;
+        color: #555;
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <img
+        src="/public/images/playandrlogo.png"
+        alt="Site Logo"
+        class="site-logo"
+      />
+      <div class="nav-container">
+        <ul class="nav-tabs">
+          <li><a href="my_teams.html" class="active">My Teams</a></li>
+          <li><a href="league_selection.html">Create/Join League</a></li>
+          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="privacy_policy.html">Privacy Policy</a></li>
+          <li><a href="#" id="signOutLink">Sign Out</a></li>
+        </ul>
+      </div>
+    </nav>
+    <div class="container">
+      <ul id="teamList" class="team-list"></ul>
+      <div id="loadingMessage" class="loading-message">Loading teams...</div>
+      <div id="noTeamsMessage" class="no-teams-message" style="display: none">
+        No teams found.
+        <a href="league_selection.html">Join or create a league.</a>
+      </div>
+    </div>
+
+    <script src="firebaseConfig.js?v=1.2" type="module"></script>
+    <script type="module">
+      import { auth, db } from "./firebaseConfig.js?v=1.2";
+      import {
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        getDocs,
+        query,
+        where,
+        collection,
+        getDoc,
+        doc,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+
+      const teamList = document.getElementById("teamList");
+      const loadingMessage = document.getElementById("loadingMessage");
+      const noTeamsMessage = document.getElementById("noTeamsMessage");
+      const signOutLink = document.getElementById("signOutLink");
+
+      let userEmail = null;
+
+      onAuthStateChanged(auth, async (user) => {
+        if (!user) {
+          window.location.href = "index.html";
+        } else {
+          userEmail = user.email;
+          await fetchUserTeams();
+        }
+      });
+
+      // Add event listener for sign-out
+      signOutLink.addEventListener("click", (e) => {
+        e.preventDefault(); // Prevent default link behavior
+        signOut(auth)
+          .then(() => {
+            // Sign-out successful.
+            window.location.href = "index.html";
+          })
+          .catch((error) => {
+            // An error happened.
+            console.error("Error signing out:", error);
+          });
+      });
+
+      async function fetchUserTeams() {
+        try {
+          const teamsQuery = query(
+            collection(db, "teams"),
+            where("userEmail", "==", userEmail)
+          );
+          const querySnapshot = await getDocs(teamsQuery);
+
+          if (querySnapshot.empty) {
+            loadingMessage.style.display = "none";
+            noTeamsMessage.style.display = "block";
+            return;
+          }
+
+          loadingMessage.style.display = "none";
+
+          querySnapshot.forEach(async (doc) => {
+            const teamData = doc.data();
+            const leagueName = await fetchLeagueName(teamData.leagueId);
+            addTeamToPage(
+              teamData.teamname,
+              leagueName,
+              doc.id,
+              teamData.leagueId
+            );
+          });
+        } catch (error) {
+          console.error("Error fetching teams:", error);
+          loadingMessage.textContent = "Error fetching teams.";
+        }
+      }
+
+      async function fetchLeagueName(leagueId) {
+        try {
+          const leagueDoc = await getDoc(doc(db, "leagues", leagueId));
+          if (leagueDoc.exists()) {
+            return leagueDoc.data().leagueName;
+          } else {
+            console.warn("League not found for ID:", leagueId);
+            return "Unknown League";
+          }
+        } catch (error) {
+          console.error("Error fetching league name:", error);
+          return "Error fetching league";
+        }
+      }
+
+      function addTeamToPage(teamName, leagueName, teamId, leagueId) {
+        const listItem = document.createElement("li");
+        listItem.classList.add("team-item");
+
+        const teamNameElem = document.createElement("span");
+        teamNameElem.classList.add("team-name");
+        teamNameElem.textContent = `${teamName} (${leagueName})`;
+
+        const viewButton = document.createElement("button");
+        viewButton.classList.add("view-team-btn");
+        viewButton.textContent = "View Team";
+        viewButton.addEventListener("click", () => viewTeam(teamId, leagueId));
+
+        listItem.appendChild(teamNameElem);
+        listItem.appendChild(viewButton);
+        teamList.appendChild(listItem);
+      }
+
+      function viewTeam(teamId, leagueId) {
+        // Save teamId and leagueId to localStorage
+        localStorage.setItem("selectedTeamId", teamId);
+        localStorage.setItem("selectedLeagueId", leagueId);
+        window.location.href = "roster.html";
+      }
+    </script>
+  </body>
+</html>
