@@ -286,9 +286,11 @@
       }
 
       function viewTeam(teamId, leagueId) {
+        console.log("Setting Team ID:", teamId);
+        console.log("Setting League ID:", leagueId);
         // Save teamId and leagueId to localStorage
         localStorage.setItem("selectedTeamId", teamId);
-        localStorage.setItem("selectedLeagueId", leagueId);
+        localStorage.setItem("leagueId", leagueId);
         window.location.href = "roster.html";
       }
     </script>
