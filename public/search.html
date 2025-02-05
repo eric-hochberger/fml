@@ -278,7 +278,7 @@
     <div class="container">
       <div class="header">
         <h1>Build Your Artist Roster</h1>
-        <h2 id="leagueName"></h2>
+        <h2 id="leagueHeader" class="league-header"></h2>
       </div>
       <div class="rules">
         <h2>Rules</h2>
@@ -317,7 +317,10 @@
     <script src="firebaseConfig.js?v=1.2" type="module"></script>
     <script type="module">
       import { auth, db } from "./firebaseConfig.js?v=1.2";
-      import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
       import {
         getDoc,
         doc,
@@ -329,6 +332,8 @@
       let slots = {};
 
       document.addEventListener("DOMContentLoaded", async () => {
+        const leagueHeaderElem = document.getElementById("leagueHeader");
+
         try {
           onAuthStateChanged(auth, async (user) => {
             if (!user) {
@@ -355,10 +360,23 @@
       });
 
       async function fetchLeagueData() {
+        const leagueHeaderElem = document.getElementById("leagueHeader");
+
         try {
           const leagueDoc = await getDoc(doc(db, "leagues", leagueId));
           if (leagueDoc.exists()) {
             leagueData = leagueDoc.data();
+            console.log("Fetched League Data:", leagueData);
+
+            // Display league name with start and end dates
+            const startDate = leagueData.startDate
+              ? new Date(leagueData.startDate).toLocaleDateString()
+              : "Not available";
+            const endDate = leagueData.endDate
+              ? new Date(leagueData.endDate).toLocaleDateString()
+              : "Not available";
+
+            leagueHeaderElem.textContent = `League: ${leagueData.leagueName} | Start Date: ${startDate} | End Date: ${endDate}`;
           } else {
             alert("League not found. Redirecting to league selection.");
             window.location.href = "league_selection.html";
@@ -370,7 +388,7 @@
       }
 
       function setupPage() {
-        const leagueNameElem = document.getElementById("leagueName");
+        const leagueNameElem = document.getElementById("leagueHeader");
         leagueNameElem.textContent = `League: ${leagueData.leagueName}`;
 
         updateRulesSection();
@@ -817,16 +835,21 @@
         if (leagueData && leagueData.endDate) {
           const endDate = new Date(leagueData.endDate);
           const formattedEndDate = endDate.toLocaleDateString();
-
+          const formattedStartDate = new Date(
+            leagueData.startDate
+          ).toLocaleDateString();
           // Find the header element
           const headerElement = document.querySelector(".header");
           if (headerElement) {
             // Create a new element for the end date
             const endDateElement = document.createElement("h3");
+            const startDateElement = document.createElement("h3");
+            startDateElement.textContent = `League Start Date: ${formattedStartDate}`;
             endDateElement.textContent = `League End Date: ${formattedEndDate}`;
             endDateElement.style.marginTop = "10px"; // Adjust margin as needed
 
             // Append the end date to the header
+            headerElement.appendChild(startDateElement);
             headerElement.appendChild(endDateElement);
           } else {
             console.error("Header container not found.");
@@ -835,6 +858,21 @@
           console.error("End date is missing in league data.");
         }
       }
+
+      // Add Sign Out functionality
+      const signOutLink = document.getElementById("signOutLink");
+
+      signOutLink.addEventListener("click", (e) => {
+        e.preventDefault(); // Prevent default link behavior
+        signOut(auth)
+          .then(() => {
+            console.log("User signed out successfully");
+            window.location.href = "index.html"; // Redirect to the sign-in page
+          })
+          .catch((error) => {
+            console.error("Error signing out:", error);
+          });
+      });
     </script>
   </body>
 </html>
