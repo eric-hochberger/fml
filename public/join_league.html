@@ -259,7 +259,7 @@
           }
 
           const response = await fetch(
-            `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getLeagues?email=${encodeURIComponent(
+            `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getLeagues?email=${encodeURIComponent(
               userEmail
             )}`
           );
@@ -322,11 +322,11 @@
           leagueId,
           password,
         };
-        //us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners
+        //us-central1-fantasy-music-league-257a3.cloudfunctions.net/getArtistMonthlyListeners
 
         try {
           const response = await fetch(
-            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/joinLeague",
+            "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/joinLeague",
             {
               method: "POST",
               headers: { "Content-Type": "application/json" },

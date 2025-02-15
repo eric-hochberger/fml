@@ -355,7 +355,10 @@
       const submitBtn = document.getElementById("submitBtn");
       const loadingMessage = document.getElementById("loadingMessage");
       const errorMessage = document.getElementById("errorMessage");
-
+      const formatDate = (date) => {
+        const d = new Date(date + "T12:00:00Z");
+        return `${d.getMonth() + 1}/${d.getDate()}/${d.getFullYear()}`;
+      };
       const addSlot = document.getElementById("addSlot");
       const addArtistName = document.getElementById("addArtistName");
       const addArtistImage = document.getElementById("addArtistImage");
@@ -424,23 +427,18 @@
           if (leagueDoc.exists()) {
             const leagueData = leagueDoc.data();
 
-            // Format the end date
             let leagueInfo = `League: ${leagueData.leagueName}`;
             if (leagueData.endDate && leagueData.startDate) {
-              const endDate = new Date(leagueData.endDate);
-              const formattedEndDate = endDate.toLocaleDateString();
-              // leagueInfo += ` (ends ${formattedEndDate})`;
-
-              const startDate = new Date(leagueData.startDate);
-              const formattedstartDate = startDate.toLocaleDateString();
-              leagueInfo += ` (${formattedstartDate} - ${formattedEndDate})`;
+              const endDate = formatDate(leagueData.endDate);
+              const startDate = formatDate(leagueData.startDate);
+              leagueInfo += ` | Start Date: ${startDate} | End Date: ${endDate}`;
             }
             leagueNameHeader.textContent = leagueInfo;
+
+            displayRoster(teamData);
           } else {
             leagueNameHeader.textContent = "League information not found.";
           }
-
-          displayRoster(teamData);
         } catch (error) {
           console.error("Error fetching team or league data:", error);
           alert("Error fetching team data. Please try again.");
@@ -594,9 +592,7 @@
 
             if (leagueDoc.exists()) {
               const leagueData = leagueDoc.data();
-              const startDate = new Date(
-                leagueData.startDate
-              ).toLocaleDateString();
+              const startDate = formatDate(leagueData.startDate);
               standingsBody.innerHTML = `
                 <tr>
                   <td colspan="2">Standings will populate when league starts on ${startDate}.</td>
@@ -656,6 +652,10 @@
             nameLink.href = `view_team.html?teamId=${encodeURIComponent(
               team.teamIdForLink
             )}`;
+            nameLink.addEventListener("click", () => {
+              localStorage.setItem("viewedTeamId", team.teamIdForLink);
+              window.location.href = `view_team.html`;
+            });
           } else {
             nameLink.href = "#";
             nameLink.style.pointerEvents = "none";
@@ -708,7 +708,7 @@
         const query = searchInput.value;
         try {
           const tokenResponse = await fetch(
-            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getToken"
+            "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
           );
           const tokenData = await tokenResponse.json();
           const accessToken = tokenData.access_token;
@@ -854,7 +854,7 @@
         }
 
         fetch(
-          "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/validateAddDrop",
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validateAddDrop",
           {
             method: "POST",
             headers: {
