@@ -107,17 +107,17 @@
             window.location.href = "index.html";
           } else {
             userEmail = user.email;
-            teamId = localStorage.getItem("selectedTeamId");
-            leagueId = localStorage.getItem("selectedLeagueId");
-
-            console.log("Retrieved Team ID from localStorage:", teamId);
-            console.log("Retrieved League ID from localStorage:", leagueId);
+            teamId =
+              localStorage.getItem("viewedTeamId") ||
+              localStorage.getItem("selectedTeamId");
+            leagueId = localStorage.getItem("leagueId");
 
             if (!teamId || !leagueId) {
               alert("No team or league selected. Redirecting to My Teams.");
               window.location.href = "my_teams.html";
             } else {
               await fetchTeamData();
+              localStorage.removeItem("viewedTeamId");
             }
           }
         });

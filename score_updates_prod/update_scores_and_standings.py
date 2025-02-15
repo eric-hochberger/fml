@@ -24,7 +24,17 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+def extract_artist_id(artist_identifier):
+    # Check if it's a full Spotify URL
+    if artist_identifier.startswith('https://open.spotify.com/artist/'):
+        # Extract the ID from the URL
+        match = re.search(r'artist/([a-zA-Z0-9]+)', artist_identifier)
+        return match.group(1) if match else artist_identifier
+    return artist_identifier
+
 def get_monthly_listeners(artist_code, retries=3):
+    # Clean the artist code first
+    artist_code = extract_artist_id(artist_code)
     artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
     for attempt in range(retries):
