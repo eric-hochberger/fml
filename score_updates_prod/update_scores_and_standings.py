@@ -49,44 +49,67 @@ def get_monthly_listeners(artist_code, retries=3):
                 logging.error(f"Failed to get page for artist {artist_code}, status code: {response.status_code}")
                 time.sleep(2)
                 continue
-                
-            web = BeautifulSoup(response.content, 'html.parser')
             
-            # Try to find the artist name
-            h1_tags = web.find_all('h1')
-            artist_name = h1_tags[0].get_text() if h1_tags else None
+            soup = BeautifulSoup(response.content, 'html.parser')
             
-            # Look for monthly listeners text
-            monthly_listeners_text = None
-            for div in web.find_all('div'):
-                text = div.get_text()
-                if 'monthly listeners' in text.lower():
-                    monthly_listeners_text = text
+            # Try to find the artist name from title
+            title_tag = soup.find('title')
+            artist_name = title_tag.get_text().split('|')[0].strip() if title_tag else None
+            
+            # Method 1: Look for the specific span with monthly listeners
+            # Note: Spotify might use different class names, so we'll try a few patterns
+            monthly_listeners_span = None
+            
+            # Try to find spans containing "monthly listeners" text
+            for span in soup.find_all('span'):
+                if span.text and 'monthly listeners' in span.text:
+                    monthly_listeners_span = span
                     break
             
-            if not monthly_listeners_text:
-                # Try another approach - look for specific patterns
-                scripts = web.find_all('script')
-                for script in scripts:
-                    if script.string and '"monthlyListeners":' in script.string:
-                        match = re.search(r'"monthlyListeners":\s*"([^"]+)"', script.string)
-                        if match:
-                            monthly_listeners_text = match.group(1)
-                            break
+            if monthly_listeners_span:
+                # Extract the number from the text
+                match = re.search(r'([\d,]+)', monthly_listeners_span.text)
+                if match:
+                    monthly_streams = int(match.group(1).replace(',', ''))
+                    return artist_name, monthly_streams
             
-            # Extract the number from the text
-            monthly_streams = 0
-            if monthly_listeners_text:
-                # Extract digits from the text
-                digits = re.search(r'([\d,]+)', monthly_listeners_text)
-                if digits:
-                    monthly_streams = int(digits.group(1).replace(',', ''))
+            # Method 2: Check for the specific class name you mentioned
+            span_with_class = soup.find('span', class_='Ydwa1P5GkCggtLlSvphs')
+            if span_with_class and 'monthly listeners' in span_with_class.text:
+                match = re.search(r'([\d,]+)', span_with_class.text)
+                if match:
+                    monthly_streams = int(match.group(1).replace(',', ''))
+                    return artist_name, monthly_streams
             
-            if monthly_streams > 0:
-                return artist_name, monthly_streams
-            else:
-                logging.info(f"Attempt {attempt + 1}: Monthly listeners for artist {artist_name or artist_code} returned as 0. Retrying...")
-                time.sleep(2)  # Wait before retrying
+            # Method 3: Look for any span containing digits followed by "monthly listeners"
+            for span in soup.find_all('span'):
+                if span.text and re.search(r'[\d,]+ monthly listeners', span.text):
+                    match = re.search(r'([\d,]+)', span.text)
+                    if match:
+                        monthly_streams = int(match.group(1).replace(',', ''))
+                        return artist_name, monthly_streams
+            
+            # Method 4: As a fallback, check meta description for approximate number
+            meta_desc = soup.find('meta', attrs={'name': 'description'})
+            if meta_desc and 'content' in meta_desc.attrs:
+                desc_text = meta_desc.attrs['content']
+                match = re.search(r'Artist · (\d+(?:\.\d+)?[KMB]?) monthly listeners', desc_text)
+                if match:
+                    listener_text = match.group(1)
+                    # Convert K, M, B to actual numbers
+                    if 'K' in listener_text:
+                        monthly_streams = int(float(listener_text.replace('K', '')) * 1000)
+                    elif 'M' in listener_text:
+                        monthly_streams = int(float(listener_text.replace('M', '')) * 1000000)
+                    elif 'B' in listener_text:
+                        monthly_streams = int(float(listener_text.replace('B', '')) * 1000000000)
+                    else:
+                        monthly_streams = int(listener_text)
+                    
+                    return artist_name, monthly_streams
+            
+            logging.info(f"Attempt {attempt + 1}: Could not find monthly listeners for artist {artist_name or artist_code}. Retrying...")
+            time.sleep(2)  # Wait before retrying
                 
         except Exception as e:
             logging.error(f"Error getting monthly listeners for {artist_code}: {str(e)}")
