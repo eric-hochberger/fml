@@ -38,27 +38,62 @@ def get_monthly_listeners(artist_code, retries=3):
     artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
     for attempt in range(retries):
-        response = requests.get(artist_url)
-        web = BeautifulSoup(response.content, 'html.parser')
-        div_content = [div.get_text() for div in web.find_all('div')]
-        h1_content = [h1.get_text() for h1 in web.find_all('h1')]
-        artist_name = h1_content[0] if h1_content else None
-
-        monthly_streams = div_content[9] if len(div_content) > 9 else None
-        if monthly_streams:
-            try:
-                monthly_streams = int(monthly_streams.split(" ")[0].replace(",", ""))
-            except ValueError:
-                monthly_streams = 0
-
-        if monthly_streams != 0:
-            return artist_name, monthly_streams
-        else:
-            logging.info(f"Attempt {attempt + 1}: Monthly listeners for artist {artist_name or artist_code} returned as 0. Retrying...")
-            time.sleep(2)  # Wait before retrying
-
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36',
+                'Accept-Language': 'en-US,en;q=0.9',
+            }
+            response = requests.get(artist_url, headers=headers)
+            
+            if response.status_code != 200:
+                logging.error(f"Failed to get page for artist {artist_code}, status code: {response.status_code}")
+                time.sleep(2)
+                continue
+                
+            web = BeautifulSoup(response.content, 'html.parser')
+            
+            # Try to find the artist name
+            h1_tags = web.find_all('h1')
+            artist_name = h1_tags[0].get_text() if h1_tags else None
+            
+            # Look for monthly listeners text
+            monthly_listeners_text = None
+            for div in web.find_all('div'):
+                text = div.get_text()
+                if 'monthly listeners' in text.lower():
+                    monthly_listeners_text = text
+                    break
+            
+            if not monthly_listeners_text:
+                # Try another approach - look for specific patterns
+                scripts = web.find_all('script')
+                for script in scripts:
+                    if script.string and '"monthlyListeners":' in script.string:
+                        match = re.search(r'"monthlyListeners":\s*"([^"]+)"', script.string)
+                        if match:
+                            monthly_listeners_text = match.group(1)
+                            break
+            
+            # Extract the number from the text
+            monthly_streams = 0
+            if monthly_listeners_text:
+                # Extract digits from the text
+                digits = re.search(r'([\d,]+)', monthly_listeners_text)
+                if digits:
+                    monthly_streams = int(digits.group(1).replace(',', ''))
+            
+            if monthly_streams > 0:
+                return artist_name, monthly_streams
+            else:
+                logging.info(f"Attempt {attempt + 1}: Monthly listeners for artist {artist_name or artist_code} returned as 0. Retrying...")
+                time.sleep(2)  # Wait before retrying
+                
+        except Exception as e:
+            logging.error(f"Error getting monthly listeners for {artist_code}: {str(e)}")
+            time.sleep(2)
+    
     logging.error(f"Failed to get valid monthly listeners for artist {artist_name or artist_code} after {retries} attempts.")
-    return artist_name, monthly_streams
+    return artist_name, 0
 
 def update_weeks_retained(df):
     # Calculate weeks retained for each artist individually
