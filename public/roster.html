@@ -3,6 +3,10 @@
   <head>
     <title>Your Roster</title>
     <link rel="icon" type="image/png" href="/images/playandrlogo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
     <style>
       /* Reset default margins and paddings */
       * {
@@ -118,6 +122,11 @@
         font-size: 14px;
         border-radius: 4px;
         padding: 10px;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+      }
+      .roster-slot:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
       }
       .artist-image {
         width: 100px;
@@ -138,8 +147,10 @@
       }
       .loading-message {
         display: none;
-        margin-top: 20px;
-        color: #555;
+        color: #666;
+        text-align: center;
+        margin: 10px 0;
+        font-style: italic;
       }
       .error-message {
         display: none;
@@ -194,25 +205,52 @@
         align-items: center;
         margin-top: 20px;
       }
+      .search-results {
+        max-height: 300px;
+        width: 80%;
+        max-width: 500px;
+        overflow-y: auto;
+        border: 1px solid #ddd;
+        border-radius: 4px;
+        margin: 10px auto;
+        background-color: white;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+
       .artist-result {
         display: flex;
         align-items: center;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        margin: 10px;
         padding: 10px;
-        width: 300px;
+        border-bottom: 1px solid #eee;
         cursor: pointer;
         transition: background-color 0.3s;
       }
+
       .artist-result:hover {
-        background-color: #f0f0f0;
+        background-color: #f5f5f5;
       }
+
       .artist-result img {
         width: 50px;
         height: 50px;
         border-radius: 50%;
-        margin-right: 10px;
+        margin-right: 15px;
+      }
+
+      .artist-info {
+        display: flex;
+        flex-direction: column;
+        flex-grow: 1;
+      }
+
+      .artist-name {
+        font-weight: bold;
+        margin-bottom: 4px;
+      }
+
+      .listeners-info {
+        font-size: 0.9em;
+        color: #666;
       }
       .artist-result div {
         text-align: left;
@@ -229,6 +267,147 @@
         text-align: center;
         font-size: 1.1em;
       }
+      .spotify-section {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+        margin: 20px 0;
+        width: 100%;
+        position: relative;
+      }
+
+      .spotify-button {
+        background-color: #1db954;
+        color: white;
+        padding: 10px 20px;
+        border: none;
+        border-radius: 20px;
+        cursor: pointer;
+        font-weight: bold;
+      }
+
+      .spotify-bonus-info {
+        color: #1db954;
+        cursor: help;
+        font-size: 1.2em;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+
+      .spotify-bonus-info:hover::after {
+        content: "Connect your Spotify account to get personalized recommendations for your roster and earn a 40% bonus for any rostered artists that break into your top 5 most listened to on Spotify!";
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        padding: 12px;
+        background-color: white;
+        color: #333;
+        border-radius: 8px;
+        font-size: 14px;
+        font-family: Arial, sans-serif;
+        line-height: 1.4;
+        z-index: 1000;
+        width: 250px;
+        margin-bottom: 12px;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+        border: 1px solid #ddd;
+        text-align: center;
+        white-space: normal;
+      }
+
+      .spotify-bonus-info:hover::before {
+        content: "";
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%);
+        border: 8px solid transparent;
+        border-top-color: white;
+        margin-bottom: 4px;
+        filter: drop-shadow(0 2px 2px rgba(0, 0, 0, 0.1));
+      }
+
+      .spotify-bonus-info:hover {
+        opacity: 0.8;
+      }
+      .recommendations-container {
+        margin: 20px 0;
+      }
+      .slot-recommendations {
+        margin-bottom: 20px;
+      }
+      .artists-grid {
+        display: flex;
+        gap: 15px;
+        overflow-x: auto;
+        padding: 10px 0;
+        scroll-snap-type: x proximity;
+        -webkit-overflow-scrolling: touch;
+        margin: 0 -15px;
+        padding: 0 15px;
+      }
+      .artist-card {
+        flex: 0 0 150px;
+        scroll-snap-align: start;
+        padding: 10px;
+        border: 1px solid #ddd;
+        border-radius: 8px;
+        cursor: pointer;
+        transition: transform 0.2s;
+        background: white;
+        min-width: 150px;
+      }
+      .artist-card:hover {
+        transform: scale(1.05);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .artist-card img {
+        width: 100%;
+        aspect-ratio: 1;
+        object-fit: cover;
+        border-radius: 4px;
+      }
+      .artist-card p {
+        margin: 5px 0;
+        text-align: center;
+      }
+      .slot-recommendations {
+        margin-bottom: 20px;
+        padding: 15px;
+        background-color: #f8f9fa;
+        border-radius: 8px;
+      }
+      /* Hide scrollbar but keep functionality */
+      .artists-grid::-webkit-scrollbar {
+        height: 6px;
+      }
+      .artists-grid::-webkit-scrollbar-track {
+        background: #f1f1f1;
+        border-radius: 3px;
+      }
+      .artists-grid::-webkit-scrollbar-thumb {
+        background: #888;
+        border-radius: 3px;
+      }
+      .artists-grid::-webkit-scrollbar-thumb:hover {
+        background: #555;
+      }
+      /* Add styles for the remove button */
+      .remove-artist-btn {
+        margin-left: 10px;
+        padding: 5px 10px;
+        background-color: #dc3545;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .remove-artist-btn:hover {
+        background-color: #c82333;
+      }
     </style>
   </head>
   <body>
@@ -238,7 +417,7 @@
         <ul class="nav-tabs">
           <li><a href="my_teams.html" class="active">My Teams</a></li>
           <li><a href="league_selection.html">Create/Join League</a></li>
-          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="faq.html">How To Play</a></li>
           <li><a href="privacy_policy.html">Privacy Policy</a></li>
           <li><a href="#" id="signOutLink">Sign Out</a></li>
         </ul>
@@ -259,7 +438,7 @@
             <th>Score</th>
           </tr>
         </thead>
-        <tbody id="standingsBody">
+        <tbody id="standingsTableBody">
           <!-- Standings will be populated here -->
         </tbody>
       </table>
@@ -312,9 +491,36 @@
       <button class="btn" id="submitBtn">Submit Changes</button>
 
       <div id="loadingMessage" class="loading-message">
-        Please wait, updating your roster...
+        Searching for artists...
       </div>
       <div id="errorMessage" class="error-message"></div>
+      <div id="submitLoadingMessage" class="loading-message">
+        Submitting changes...
+      </div>
+      <div id="loadingMessageSpotify" class="loading-message">
+        Finding your favorite artists on Spotify...
+      </div>
+      <div class="spotify-section">
+        <button id="connectSpotifyBtn" class="spotify-button">
+          <i class="fab fa-spotify"></i> Get Spotify Recommendations
+        </button>
+        <i
+          class="fas fa-info-circle spotify-bonus-info"
+          title="Connect Spotify to get personalized recommendations for your roster
+          and earn a 40% bonus for any rostered artists that break into your top 5 most listened!"
+        ></i>
+        <div
+          id="spotifyLoadingMessage"
+          class="loading-message"
+          style="display: none"
+        >
+          Finding your favorite artists on Spotify...
+        </div>
+        <div
+          id="spotifyRecommendations"
+          class="recommendations-container"
+        ></div>
+      </div>
     </div>
 
     <!-- Include Firebase and other necessary scripts -->
@@ -329,6 +535,10 @@
         query,
         where,
         getDocs,
+        updateDoc,
+        serverTimestamp,
+        setDoc,
+        arrayUnion,
       } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
       const signOutLink = document.getElementById("signOutLink");
@@ -348,7 +558,7 @@
       const rosterContainer = document.getElementById("roster");
       const teamNameHeader = document.getElementById("teamNameHeader");
       const leagueNameHeader = document.getElementById("leagueNameHeader");
-      const standingsBody = document.getElementById("standingsBody");
+      const standingsTableBody = document.getElementById("standingsTableBody");
       const searchBtn = document.getElementById("searchBtn");
       const searchInput = document.getElementById("searchInput");
       const searchResults = document.getElementById("searchResults");
@@ -392,8 +602,7 @@
         teamId = localStorage.getItem("selectedTeamId");
         leagueId = localStorage.getItem("leagueId");
 
-        console.log("Team ID:", teamId);
-        console.log("League ID:", leagueId);
+        console.log("Fetching team data for:", teamId); // Debug log
 
         if (!teamId || !leagueId) {
           alert("No team selected. Redirecting to My Teams.");
@@ -402,9 +611,11 @@
         }
 
         try {
-          // Fetch team data
+          // Add cache-busting parameter to the query
           const teamDocRef = doc(db, "teams", teamId);
           const teamDoc = await getDoc(teamDocRef);
+
+          console.log("Team doc data:", teamDoc.data()); // Debug log
 
           if (!teamDoc.exists()) {
             alert("Team not found. Redirecting to My Teams.");
@@ -440,12 +651,13 @@
             leagueNameHeader.textContent = "League information not found.";
           }
         } catch (error) {
-          console.error("Error fetching team or league data:", error);
+          console.error("Error fetching team data:", error);
           alert("Error fetching team data. Please try again.");
         }
       }
 
       async function displayRoster(team) {
+        console.log("DisplayRoster called with team data:", team); // Debug log
         rosterContainer.innerHTML = "";
 
         if (!team.artists || Object.keys(team.artists).length === 0) {
@@ -454,9 +666,8 @@
         }
 
         const artists = team.artists;
-        console.log("Artists Data:", artists);
+        console.log("Artists Data:", artists); // Debug log
 
-        // Updated slot ordering and labels to match your data
         const slotOrder = ["slot_1", "slot_2", "slot_3", "slot_4", "slot_5"];
 
         try {
@@ -466,7 +677,7 @@
 
           if (leagueDoc.exists()) {
             const leagueData = leagueDoc.data();
-            console.log("League Data:", leagueData);
+            console.log("League Data:", leagueData); // Debug log
 
             if (!leagueData.listenerThresholds) {
               console.error("Listener thresholds are not defined.");
@@ -476,7 +687,6 @@
             }
 
             const listenerThresholds = leagueData.listenerThresholds;
-            console.log("Listener Thresholds:", listenerThresholds);
 
             // Create slot labels with thresholds
             const slotLabels = {};
@@ -487,6 +697,9 @@
                 : `Slot ${slot.split("_")[1]}`;
             });
 
+            // Clear the container before adding new content
+            rosterContainer.innerHTML = "";
+
             // Continue with roster display using new labels
             slotOrder.forEach((slotKey) => {
               for (const artistCode in artists) {
@@ -496,10 +709,15 @@
                   artists[artistCode].slot === slotKey
                 ) {
                   const artist = artists[artistCode];
+                  console.log("Processing artist for display:", artist); // Debug log
+
                   const artistElement = document.createElement("div");
                   artistElement.classList.add("roster-slot");
 
-                  // Add artist image
+                  // Make the roster slot clickable
+                  artistElement.style.cursor = "pointer";
+
+                  // Create and append artist content first
                   if (artist.imageUrl) {
                     const artistImage = document.createElement("img");
                     artistImage.src = artist.imageUrl;
@@ -508,7 +726,6 @@
                     artistElement.appendChild(artistImage);
                   }
 
-                  // Add artist details
                   const artistName = document.createElement("div");
                   artistName.textContent = artist.name;
                   artistElement.appendChild(artistName);
@@ -523,52 +740,54 @@
                   );
                   if (dateKeys.length > 0) {
                     dateKeys.sort();
-                    const baselineCount = artist[dateKeys[0]];
-                    let recentCount = artist[dateKeys[dateKeys.length - 1]];
-
-                    // Find the most recent non-null listener count
-                    if (recentCount === null) {
-                      for (let i = dateKeys.length - 1; i >= 0; i--) {
-                        if (artist[dateKeys[i]] !== null) {
-                          recentCount = artist[dateKeys[i]];
-                          break;
-                        }
-                      }
-                    }
-
                     const listenerInfo = document.createElement("div");
                     listenerInfo.innerHTML = `
-                      <p>Baseline Listeners Count: ${formatNumberWithCommas(
-                        baselineCount
-                      )}</p>
-                      <p>Most Recent Listeners Count: ${
-                        recentCount !== null
-                          ? formatNumberWithCommas(recentCount)
-                          : "No data available"
-                      }</p>
-                    `;
+                                    <p>Baseline Listeners: ${formatNumberWithCommas(
+                                      artist[dateKeys[0]]
+                                    )}</p>
+                                    <p>Current Listeners: ${formatNumberWithCommas(
+                                      artist[dateKeys[dateKeys.length - 1]]
+                                    )}</p>
+                                `;
                     artistElement.appendChild(listenerInfo);
                   }
+
+                  // Add click handler after all content is added
+                  artistElement.addEventListener("click", () => {
+                    if (document.getElementById("addArtistName").textContent) {
+                      const dropArtistName =
+                        document.getElementById("dropArtistName");
+                      const dropArtistImage =
+                        document.getElementById("dropArtistImage");
+                      const removeDropArtistBtn = document.getElementById(
+                        "removeDropArtistBtn"
+                      );
+
+                      dropArtistName.textContent = artist.name;
+                      dropArtistImage.src =
+                        artist.imageUrl || "https://via.placeholder.com/50";
+                      dropArtistImage.style.display = "block";
+                      removeDropArtistBtn.style.display = "block";
+                      dropArtistName.setAttribute("data-link", artist.link);
+                    } else {
+                      alert("Please select an artist to add first.");
+                    }
+                  });
 
                   rosterContainer.appendChild(artistElement);
                 }
               }
             });
-          } else {
-            console.error("League document does not exist.");
-            rosterContainer.textContent = "League not found.";
           }
         } catch (error) {
-          console.error(
-            "Error fetching league rules or displaying roster:",
-            error
-          );
+          console.error("Error displaying roster:", error);
           rosterContainer.textContent = "Error loading roster.";
         }
       }
 
-      function formatNumberWithCommas(value) {
-        return value.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
+      function formatNumberWithCommas(number) {
+        if (number === undefined || number === null) return "N/A";
+        return number.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ",");
       }
 
       async function fetchStandings() {
@@ -581,6 +800,7 @@
           // Fetch standings for the league
           const standingsDocRef = doc(db, "standings", leagueId);
           const standingsDoc = await getDoc(standingsDocRef);
+          const standingsBody = document.getElementById("standingsTableBody");
 
           if (standingsDoc.exists()) {
             const standingsData = standingsDoc.data();
@@ -592,6 +812,7 @@
 
             if (leagueDoc.exists()) {
               const leagueData = leagueDoc.data();
+              // Use the existing formatDate function
               const startDate = formatDate(leagueData.startDate);
               standingsBody.innerHTML = `
                 <tr>
@@ -609,6 +830,7 @@
           }
         } catch (error) {
           console.error("Error fetching standings:", error);
+          const standingsBody = document.getElementById("standingsTableBody");
           standingsBody.innerHTML = `
             <tr>
               <td colspan="2">Error loading standings.</td>
@@ -617,11 +839,12 @@
         }
       }
 
-      async function displayStandings(data) {
+      async function displayStandings(standings) {
+        const standingsBody = document.getElementById("standingsTableBody");
         standingsBody.innerHTML = "";
 
         // Prepare an array of promises to fetch teamIds
-        const teamPromises = data.map(async (team) => {
+        const teamPromises = standings.map(async (team) => {
           const teamIdForLink = await getTeamIdByNameAndLeague(
             team.teamname,
             leagueId
@@ -652,7 +875,8 @@
             nameLink.href = `view_team.html?teamId=${encodeURIComponent(
               team.teamIdForLink
             )}`;
-            nameLink.addEventListener("click", () => {
+            nameLink.addEventListener("click", (e) => {
+              e.preventDefault();
               localStorage.setItem("viewedTeamId", team.teamIdForLink);
               window.location.href = `view_team.html`;
             });
@@ -706,9 +930,17 @@
 
       async function searchArtists() {
         const query = searchInput.value;
+        const loadingMessage = document.getElementById("loadingMessage");
+
+        if (!query.trim()) return;
+
+        loadingMessage.textContent = "Searching for artists...";
+        loadingMessage.style.display = "block";
+        searchResults.innerHTML = "";
+
         try {
           const tokenResponse = await fetch(
-            "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getToken"
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getToken"
           );
           const tokenData = await tokenResponse.json();
           const accessToken = tokenData.access_token;
@@ -716,7 +948,7 @@
           const searchResponse = await fetch(
             `https://api.spotify.com/v1/search?q=${encodeURIComponent(
               query
-            )}&type=artist`,
+            )}&type=artist&limit=50`,
             {
               headers: {
                 Authorization: `Bearer ${accessToken}`,
@@ -724,98 +956,176 @@
             }
           );
           const data = await searchResponse.json();
-          displayResults(data);
+          await displayResults(data);
         } catch (error) {
           console.error("Error fetching data:", error);
+          searchResults.innerHTML =
+            "Error searching for artists. Please try again.";
+        } finally {
+          loadingMessage.style.display = "none";
         }
       }
 
-      function displayResults(data) {
+      async function displayResults(data) {
         searchResults.innerHTML = "";
-        const artists = data.artists.items.slice(0, 5); // Limit to 5 results
-        artists.forEach((artist) => {
-          const artistElement = document.createElement("div");
-          artistElement.classList.add("artist-result");
+        const artists = data.artists.items;
 
-          const artistImage = document.createElement("img");
-          artistImage.src = artist.images[0]
-            ? artist.images[0].url
-            : "https://via.placeholder.com/50";
-          artistElement.appendChild(artistImage);
+        // Create container for scrollable results
+        const resultsContainer = document.createElement("div");
+        resultsContainer.classList.add("search-results");
+        searchResults.appendChild(resultsContainer);
 
-          const artistDetails = document.createElement("div");
+        // Create an array of promises to fetch monthly listeners for each artist
+        const listenerPromises = artists.map((artist) =>
+          fetch(
+            `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artist.id}`
+          )
+            .then((res) => res.json())
+            .catch((err) => ({ monthlyStreams: null }))
+        );
 
-          const artistName = document.createElement("div");
-          artistName.classList.add("artist-name");
-          artistName.textContent = artist.name;
-          artistDetails.appendChild(artistName);
+        try {
+          // Wait for all promises to resolve
+          const listenersData = await Promise.all(listenerPromises);
 
-          artistElement.appendChild(artistDetails);
+          // Display all artists with their monthly listeners
+          artists.forEach((artist, index) => {
+            const artistElement = document.createElement("div");
+            artistElement.classList.add("artist-result");
 
-          artistElement.addEventListener("click", () =>
-            addArtistToSlot(artist)
-          );
-          searchResults.appendChild(artistElement);
-        });
-      }
+            const artistImage = document.createElement("img");
+            artistImage.src = artist.images[0]
+              ? artist.images[0].url
+              : "https://via.placeholder.com/50";
 
-      function addArtistToSlot(artist) {
-        const artistName = artist.name;
-        const artistImage = artist.images[0]
-          ? artist.images[0].url
-          : "https://via.placeholder.com/50";
-        const artistLink = artist.external_urls.spotify;
+            const artistInfo = document.createElement("div");
+            artistInfo.classList.add("artist-info");
 
-        // Check which slot is empty and add the artist there
-        if (addArtistName.textContent === "") {
-          fillAddSlot(artistName, artistImage, artistLink);
-        } else if (dropArtistName.textContent === "") {
-          fillDropSlot(artistName, artistImage, artistLink);
-        } else {
-          showError("Both add and drop slots are filled.");
+            const artistName = document.createElement("div");
+            artistName.classList.add("artist-name");
+            artistName.textContent = artist.name;
+
+            const monthlyListeners = listenersData[index]?.monthlyStreams;
+            const listenersInfo = document.createElement("div");
+            listenersInfo.classList.add("listeners-info");
+            listenersInfo.textContent = `Monthly Listeners: ${
+              monthlyListeners ? monthlyListeners.toLocaleString() : "N/A"
+            }`;
+
+            artistInfo.appendChild(artistName);
+            artistInfo.appendChild(listenersInfo);
+            artistElement.appendChild(artistImage);
+            artistElement.appendChild(artistInfo);
+
+            // Add click handler for add/drop functionality
+            artistElement.addEventListener("click", () => {
+              const artistData = {
+                name: artist.name,
+                images: artist.images,
+                external_urls: artist.external_urls,
+                id: artist.id,
+                monthlyStreams: monthlyListeners,
+              };
+
+              // Check which slot to fill (Add or Drop)
+              const addSlot = document.getElementById("addSlot");
+              const dropSlot = document.getElementById("dropSlot");
+
+              // If Drop slot is empty and Add slot has an artist, fill Drop slot
+              if (
+                document.getElementById("dropArtistName").textContent === "" &&
+                document.getElementById("addArtistName").textContent !== ""
+              ) {
+                const dropArtistName =
+                  document.getElementById("dropArtistName");
+                const dropArtistImage =
+                  document.getElementById("dropArtistImage");
+                const removeDropArtistBtn = document.getElementById(
+                  "removeDropArtistBtn"
+                );
+
+                dropArtistName.textContent = artistData.name;
+                dropArtistImage.src = artistData.images[0]
+                  ? artistData.images[0].url
+                  : "https://via.placeholder.com/50";
+                dropArtistImage.style.display = "block";
+                removeDropArtistBtn.style.display = "block";
+
+                // Store the Spotify link
+                dropArtistName.setAttribute(
+                  "data-link",
+                  artistData.external_urls.spotify
+                );
+              } else {
+                // Otherwise, fill Add slot
+                const addArtistName = document.getElementById("addArtistName");
+                const addArtistImage =
+                  document.getElementById("addArtistImage");
+                const removeAddArtistBtn =
+                  document.getElementById("removeAddArtistBtn");
+
+                addArtistName.textContent = artistData.name;
+                addArtistImage.src = artistData.images[0]
+                  ? artistData.images[0].url
+                  : "https://via.placeholder.com/50";
+                addArtistImage.style.display = "block";
+                removeAddArtistBtn.style.display = "block";
+
+                // Store the Spotify link
+                addArtistName.setAttribute(
+                  "data-link",
+                  artistData.external_urls.spotify
+                );
+              }
+
+              // Clear the search results
+              searchResults.innerHTML = "";
+              searchInput.value = "";
+
+              // Hide the loading message
+              document.getElementById("loadingMessage").style.display = "none";
+            });
+
+            resultsContainer.appendChild(artistElement);
+          });
+        } catch (error) {
+          console.error("Error processing results:", error);
+          searchResults.innerHTML =
+            "Error processing results. Please try again.";
         }
       }
 
-      function fillAddSlot(artistNameText, artistImageUrl, artistLink) {
-        addArtistName.textContent = artistNameText;
-        addArtistImage.src = artistImageUrl;
-        addArtistImage.style.display = "block";
-        addArtistName.setAttribute("data-link", artistLink);
-        removeAddArtistBtn.style.display = "block";
-      }
+      // Add event listeners for the remove buttons
+      document
+        .getElementById("removeAddArtistBtn")
+        .addEventListener("click", (e) => {
+          e.stopPropagation();
+          const addArtistName = document.getElementById("addArtistName");
+          const addArtistImage = document.getElementById("addArtistImage");
+          const removeAddArtistBtn =
+            document.getElementById("removeAddArtistBtn");
 
-      function fillDropSlot(
-        artistNameText,
-        artistImageUrl,
-        artistLink,
-        artistCode
-      ) {
-        dropArtistName.textContent = artistNameText;
-        dropArtistImage.src = artistImageUrl;
-        dropArtistImage.style.display = "block";
-        dropArtistName.setAttribute("data-link", artistLink);
-        dropArtistName.setAttribute("data-code", artistCode);
-        removeDropArtistBtn.style.display = "block";
-      }
+          addArtistName.textContent = "";
+          addArtistImage.style.display = "none";
+          removeAddArtistBtn.style.display = "none";
+          addArtistName.removeAttribute("data-link");
+        });
 
-      removeAddArtistBtn.addEventListener("click", () => {
-        addArtistName.textContent = "";
-        addArtistImage.src = "";
-        addArtistImage.style.display = "none";
-        addArtistName.removeAttribute("data-link");
-        removeAddArtistBtn.style.display = "none";
-        hideError();
-      });
+      document
+        .getElementById("removeDropArtistBtn")
+        .addEventListener("click", (e) => {
+          e.stopPropagation();
+          const dropArtistName = document.getElementById("dropArtistName");
+          const dropArtistImage = document.getElementById("dropArtistImage");
+          const removeDropArtistBtn = document.getElementById(
+            "removeDropArtistBtn"
+          );
 
-      removeDropArtistBtn.addEventListener("click", () => {
-        dropArtistName.textContent = "";
-        dropArtistImage.src = "";
-        dropArtistImage.style.display = "none";
-        dropArtistName.removeAttribute("data-link");
-        dropArtistName.removeAttribute("data-code");
-        removeDropArtistBtn.style.display = "none";
-        hideError();
-      });
+          dropArtistName.textContent = "";
+          dropArtistImage.style.display = "none";
+          removeDropArtistBtn.style.display = "none";
+          dropArtistName.removeAttribute("data-link");
+        });
 
       function showError(message) {
         errorMessage.textContent = message;
@@ -836,14 +1146,19 @@
 
       const selectedTeamID = localStorage.getItem("selectedTeamId");
 
+      submitBtn.addEventListener("click", submitChanges);
+
       function submitChanges() {
         hideError();
+        // Update the loading message text before showing it
+        const loadingMessage = document.getElementById("loadingMessage");
+        loadingMessage.textContent = "Please wait, updating your roster...";
         showLoadingMessage();
 
-        const email = localStorage.getItem("userEmail");
         const dropArtistLink = dropArtistName.getAttribute("data-link");
         const addArtistLink = addArtistName.getAttribute("data-link");
         const addArtistImageUrl = addArtistImage.src;
+        const selectedTeamID = localStorage.getItem("selectedTeamId");
 
         if (!dropArtistLink || !addArtistLink) {
           hideLoadingMessage();
@@ -853,8 +1168,14 @@
           return;
         }
 
+        if (!selectedTeamID) {
+          hideLoadingMessage();
+          showError("No team selected. Please try refreshing the page.");
+          return;
+        }
+
         fetch(
-          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/validateAddDrop",
+          "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/validateAddDrop",
           {
             method: "POST",
             headers: {
@@ -874,7 +1195,11 @@
             if (data.status === "success") {
               window.location.href = "roster.html";
             } else {
-              showError(data.issues.map((issue) => issue.message).join("\n"));
+              showError(
+                data.issues
+                  ? data.issues.map((issue) => issue.message).join("\n")
+                  : data.message
+              );
             }
           })
           .catch((error) => {
@@ -884,7 +1209,495 @@
           });
       }
 
-      submitBtn.addEventListener("click", submitChanges);
+      const recommendationsDiv = document.createElement("div");
+      recommendationsDiv.id = "spotifyRecommendations";
+      recommendationsDiv.className = "recommendations-container";
+      document.querySelector("#roster").after(recommendationsDiv);
+
+      // Updated displaySpotifyRecommendations function to ensure recommendations are displayed
+      async function displaySpotifyRecommendations(data) {
+        console.log("Displaying Spotify recommendations:", data);
+
+        // Hide loading message and clear localStorage flag
+        const loadingMessage = document.getElementById("spotifyLoadingMessage");
+        if (loadingMessage) {
+          loadingMessage.style.display = "none";
+        }
+        localStorage.removeItem("showSpotifyLoading");
+
+        if (data.status === "success") {
+          displayRecommendationsList(data.recommendations, data.thresholds);
+        } else {
+          showError("Failed to get recommendations");
+        }
+      }
+
+      // Updated displayRecommendationsList function from search.html
+      function displayRecommendationsList(recommendations, thresholds) {
+        const container = document.getElementById("spotifyRecommendations");
+        if (!container) {
+          // Create the container if it doesn't exist
+          const newContainer = document.createElement("div");
+          newContainer.id = "spotifyRecommendations";
+          document.querySelector(".container").appendChild(newContainer);
+        }
+
+        const recommendationsDiv = document.getElementById(
+          "spotifyRecommendations"
+        );
+        recommendationsDiv.innerHTML = "";
+
+        // Create header
+        const header = document.createElement("h3");
+        header.textContent = "Recommended Artists Based on Your Spotify";
+        recommendationsDiv.appendChild(header);
+
+        // Process each slot's recommendations
+        Object.keys(recommendations).forEach((slot) => {
+          const slotNumber = slot.split("_")[1];
+          const threshold = thresholds[slot];
+
+          // Create slot section
+          const slotSection = document.createElement("div");
+          slotSection.className = "recommendation-slot-section";
+
+          // Create slot header
+          const slotHeader = document.createElement("h4");
+          slotHeader.textContent = `Slot ${slotNumber}: Under ${formatNumberWithCommas(
+            threshold
+          )} Listeners`;
+          slotSection.appendChild(slotHeader);
+
+          // Create artists container for this slot (horizontal scrolling)
+          const artistsContainer = document.createElement("div");
+          artistsContainer.className = "recommendation-artists-container";
+          artistsContainer.style.display = "flex";
+          artistsContainer.style.overflowX = "auto";
+          artistsContainer.style.gap = "10px";
+          artistsContainer.style.padding = "10px 0";
+
+          // Add each artist in this slot
+          recommendations[slot].forEach((artist) => {
+            const artistCard = document.createElement("div");
+            artistCard.className = "recommendation-artist-card";
+            artistCard.style.flex = "0 0 150px";
+            artistCard.style.padding = "10px";
+            artistCard.style.border = "1px solid #ddd";
+            artistCard.style.borderRadius = "8px";
+            artistCard.style.cursor = "pointer";
+            artistCard.style.transition = "transform 0.2s";
+            artistCard.style.background = "white";
+
+            // Artist image
+            const img = document.createElement("img");
+            img.src =
+              artist.images && artist.images.length > 0
+                ? artist.images[0].url
+                : "https://via.placeholder.com/50";
+            img.alt = artist.name;
+            img.style.width = "100%";
+            img.style.aspectRatio = "1";
+            img.style.objectFit = "cover";
+            img.style.borderRadius = "4px";
+
+            // Artist name and listeners
+            const nameElement = document.createElement("div");
+            nameElement.className = "recommendation-artist-name";
+            nameElement.textContent = artist.name;
+            nameElement.style.margin = "5px 0";
+            nameElement.style.fontWeight = "bold";
+            nameElement.style.textAlign = "center";
+
+            const listenersElement = document.createElement("div");
+            listenersElement.className = "recommendation-artist-listeners";
+            listenersElement.textContent = `${formatNumberWithCommas(
+              artist.monthlyStreams
+            )} monthly listeners`;
+            listenersElement.style.fontSize = "0.9em";
+            listenersElement.style.color = "#666";
+            listenersElement.style.textAlign = "center";
+
+            // Add elements to card
+            artistCard.appendChild(img);
+            artistCard.appendChild(nameElement);
+            artistCard.appendChild(listenersElement);
+
+            // Add hover effect
+            artistCard.addEventListener("mouseover", () => {
+              artistCard.style.transform = "scale(1.05)";
+              artistCard.style.boxShadow = "0 2px 8px rgba(0, 0, 0, 0.1)";
+            });
+
+            artistCard.addEventListener("mouseout", () => {
+              artistCard.style.transform = "scale(1)";
+              artistCard.style.boxShadow = "none";
+            });
+
+            // Add click handler to select this artist
+            artistCard.addEventListener("click", () => {
+              // Add the artist to the roster
+              addArtistToRoster(artist);
+            });
+
+            artistsContainer.appendChild(artistCard);
+          });
+
+          slotSection.appendChild(artistsContainer);
+          recommendationsDiv.appendChild(slotSection);
+        });
+      }
+
+      // Add the addArtistToRoster function
+      function addArtistToRoster(artist) {
+        // Ensure the artist object has all required properties
+        const artistData = {
+          name: artist.name || "Unknown Artist",
+          images: artist.images || [],
+          external_urls: artist.external_urls || {},
+          id: artist.id,
+          monthlyStreams: artist.monthlyStreams || 0,
+        };
+
+        console.log("Adding artist to roster:", artistData);
+
+        // Get the add artist elements
+        const addArtistName = document.getElementById("addArtistName");
+        const addArtistImage = document.getElementById("addArtistImage");
+        const removeAddArtistBtn =
+          document.getElementById("removeAddArtistBtn");
+
+        if (addArtistName && addArtistImage && removeAddArtistBtn) {
+          // Update the add artist slot
+          addArtistName.textContent = artistData.name;
+          addArtistImage.src = artistData.images[0]
+            ? artistData.images[0].url
+            : "https://via.placeholder.com/50";
+          addArtistImage.style.display = "block";
+          removeAddArtistBtn.style.display = "block";
+
+          // Store the Spotify link
+          if (artistData.external_urls && artistData.external_urls.spotify) {
+            addArtistName.setAttribute(
+              "data-link",
+              artistData.external_urls.spotify
+            );
+          }
+
+          // Scroll to the add/drop section
+          const addDropSection = document.querySelector(".add-drop-section");
+          if (addDropSection) {
+            addDropSection.scrollIntoView({ behavior: "smooth" });
+          }
+        } else {
+          console.error("Add artist elements not found in the DOM");
+          alert("Error: Could not add artist to roster. Please try again.");
+        }
+      }
+
+      // Update the Spotify auth handling code
+      function generateSpotifyAuthUrl() {
+        const clientId = "1ecaed228b794566a15797402a728c04";
+        let redirectUri;
+
+        if (
+          window.location.hostname === "127.0.0.1" ||
+          window.location.hostname === "localhost"
+        ) {
+          redirectUri = "http://127.0.0.1:5501/public/roster.html";
+        } else if (
+          window.location.hostname === "fantasy-musicpleague-test.web.app"
+        ) {
+          redirectUri = "https://fantasy-musicpleague-test.web.app/roster.html";
+        } else {
+          redirectUri = "https://playandr.com/roster.html";
+        }
+
+        const scope = "user-top-read";
+        const state = Math.random().toString(36).substring(7);
+        localStorage.setItem("spotify_auth_state", state);
+
+        const params = new URLSearchParams({
+          response_type: "code",
+          client_id: clientId,
+          scope: scope,
+          redirect_uri: redirectUri,
+          state: state,
+        });
+
+        return `https://accounts.spotify.com/authorize?${params}`;
+      }
+
+      // On page load, check for callback and loading state
+      document.addEventListener("DOMContentLoaded", async () => {
+        try {
+          // Check for Spotify auth callback
+          const urlParams = new URLSearchParams(window.location.search);
+          const code = urlParams.get("code");
+          const state = urlParams.get("state");
+          const savedState = localStorage.getItem("spotify_auth_state");
+
+          if (code && state && state === savedState) {
+            handleSpotifyCallback(code);
+          }
+        } catch (error) {
+          console.error("Error in DOMContentLoaded:", error);
+        }
+      });
+
+      // Updated handleSpotifyCallback function with better error handling for storeSpotifyTopArtists
+      async function handleSpotifyCallback(code) {
+        console.log("Starting Spotify callback with code:", code);
+        try {
+          let redirectUri;
+          if (
+            window.location.hostname === "127.0.0.1" ||
+            window.location.hostname === "localhost"
+          ) {
+            redirectUri = "http://127.0.0.1:5501/public/roster.html";
+          } else if (
+            window.location.hostname === "fantasy-musicpleague-test.web.app"
+          ) {
+            redirectUri =
+              "https://fantasy-musicpleague-test.web.app/roster.html";
+          } else {
+            redirectUri = "https://playandr.com/roster.html";
+          }
+
+          console.log("Using redirect URI:", redirectUri);
+
+          // First, exchange the code for an access token
+          const tokenResponse = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/exchangeSpotifyCode",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                code,
+                redirectUri,
+              }),
+            }
+          );
+
+          if (!tokenResponse.ok) {
+            const errorText = await tokenResponse.text();
+            console.error(
+              "Token exchange failed:",
+              tokenResponse.status,
+              errorText
+            );
+            throw new Error(
+              `Token exchange failed: ${tokenResponse.status} - ${errorText}`
+            );
+          }
+
+          const tokenData = await tokenResponse.json();
+          console.log("Token exchange successful");
+
+          if (!tokenData.access_token) {
+            console.error("No access token in response:", tokenData);
+            throw new Error("No access token received");
+          }
+
+          localStorage.setItem("spotify_access_token", tokenData.access_token);
+
+          // Get recommendations using the token
+          const recommendationsResponse = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getSpotifyRecommendations",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                accessToken: tokenData.access_token,
+                leagueId: localStorage.getItem("leagueId"),
+              }),
+            }
+          );
+
+          if (!recommendationsResponse.ok) {
+            const errorText = await recommendationsResponse.text();
+            console.error(
+              "Recommendations request failed:",
+              recommendationsResponse.status,
+              errorText
+            );
+            throw new Error(
+              `Recommendations request failed: ${recommendationsResponse.status} - ${errorText}`
+            );
+          }
+
+          const recommendationsData = await recommendationsResponse.json();
+          console.log(
+            "Recommendations received successfully:",
+            recommendationsData
+          );
+
+          // Display the recommendations
+          await displaySpotifyRecommendations(recommendationsData);
+
+          // After displaying recommendations, try to store top artists in the background
+          const teamId = localStorage.getItem("selectedTeamId");
+          if (teamId) {
+            storeSpotifyTopArtists(teamId, tokenData.access_token)
+              .then((result) => console.log("Stored top artists:", result))
+              .catch((error) =>
+                console.warn("Error storing top artists:", error)
+              );
+          }
+        } catch (error) {
+          console.error("Error in handleSpotifyCallback:", error);
+          showError(`Failed to connect with Spotify: ${error.message}`);
+        } finally {
+          // Clean up
+          localStorage.removeItem("showSpotifyLoading");
+          localStorage.removeItem("spotify_auth_state");
+
+          const loadingMessage = document.getElementById(
+            "loadingMessageSpotify"
+          );
+          if (loadingMessage) {
+            loadingMessage.style.display = "none";
+          }
+        }
+      }
+
+      const connectSpotifyBtn = document.getElementById("connectSpotifyBtn");
+
+      if (connectSpotifyBtn) {
+        connectSpotifyBtn.addEventListener("click", async () => {
+          const loadingMessage = document.getElementById(
+            "spotifyLoadingMessage"
+          );
+          if (loadingMessage) {
+            loadingMessage.style.display = "block";
+          }
+          localStorage.setItem("showSpotifyLoading", "true");
+          localStorage.removeItem("spotify_access_token");
+          window.location.href = generateSpotifyAuthUrl();
+        });
+      }
+
+      async function storeSpotifyTopArtists(teamId, accessToken) {
+        try {
+          const timeRanges = ["short_term", "medium_term"];
+          let allArtists = [];
+
+          for (const timeRange of timeRanges) {
+            const response = await fetch(
+              `https://api.spotify.com/v1/me/top/artists?time_range=${timeRange}&limit=50`,
+              {
+                headers: {
+                  Authorization: `Bearer ${accessToken}`,
+                },
+              }
+            );
+
+            if (!response.ok) {
+              console.warn(
+                `Error fetching ${timeRange} top artists: ${response.status}`
+              );
+              continue; // Skip this time range but continue with the rest
+            }
+
+            const data = await response.json();
+            allArtists = allArtists.concat(data.items);
+          }
+
+          // Remove duplicates
+          const uniqueArtists = Array.from(
+            new Set(allArtists.map((a) => a.id))
+          ).map((id) => allArtists.find((a) => a.id === id));
+
+          const storeResponse = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/storeSpotifyTopArtists",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                teamId: teamId,
+                artists: uniqueArtists,
+              }),
+            }
+          );
+
+          // Try to parse as JSON, but don't fail if we can't
+          try {
+            const result = await storeResponse.json();
+            console.log("Stored top artists:", result);
+            return result;
+          } catch (jsonError) {
+            console.warn(
+              "Non-JSON response from storeSpotifyTopArtists:",
+              await storeResponse.text()
+            );
+            // Don't throw - just continue since this isn't critical
+            return { status: "warning", message: "Could not parse response" };
+          }
+        } catch (error) {
+          console.warn("Error in storeSpotifyTopArtists:", error);
+          // Don't throw - just continue since this isn't critical
+          return { status: "warning", message: error.message };
+        }
+      }
+
+      document.addEventListener("DOMContentLoaded", () => {
+        // Check if we should show loading message from previous session
+        const shouldShowLoading = localStorage.getItem("showSpotifyLoading");
+        const loadingMessage = document.getElementById("spotifyLoadingMessage");
+
+        if (shouldShowLoading === "true" && loadingMessage) {
+          loadingMessage.style.display = "block";
+        }
+      });
+
+      async function getSpotifyRecommendations(accessToken) {
+        console.log("Getting recommendations with params:", {
+          accessToken: !!accessToken,
+          leagueId: leagueId,
+        });
+
+        try {
+          if (!leagueId) {
+            throw new Error("League ID is not set");
+          }
+
+          const response = await fetch(
+            "https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getSpotifyRecommendations",
+            {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+              },
+              body: JSON.stringify({
+                accessToken,
+                leagueId,
+              }),
+            }
+          );
+
+          console.log("Raw response:", response);
+          const data = await response.json();
+          console.log("Recommendations response data:", data);
+
+          if (!response.ok) {
+            throw new Error(
+              `Recommendations request failed: ${
+                response.status
+              } - ${JSON.stringify(data)}`
+            );
+          }
+
+          return data;
+        } catch (error) {
+          console.error("Error getting recommendations:", error);
+          throw error;
+        }
+      }
     </script>
   </body>
 </html>

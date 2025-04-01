@@ -14,6 +14,7 @@ const cheerio = require("cheerio");
 const admin = require("firebase-admin");
 const cors = require("cors")({ origin: true });
 const bcrypt = require("bcrypt");
+const fetch = require("node-fetch");
 
 admin.initializeApp();
 
@@ -43,75 +44,159 @@ function extractArtistCode(url) {
  * @return {Promise<{artistName: string, monthlyStreams: number}>} - An object
  * containing the artist's name and monthly listeners.
  */
-async function getMonthlyListeners(artistCode, retries = 3) {
-  const artistUrl = `https://open.spotify.com/artist/${artistCode}`;
+// async function getMonthlyListeners(artistCode, retries = 3) {
+//   const artistUrl = `https://open.spotify.com/artist/${artistCode}`;
 
-  for (let attempt = 1; attempt <= retries; attempt++) {
-    try {
-      const response = await axios.get(artistUrl, { timeout: 10000 });
-      const $ = cheerio.load(response.data);
-      const artistName = $("h1").first().text();
-      let monthlyStreams = $("div").eq(9).text();
+//   for (let attempt = 1; attempt <= retries; attempt++) {
+//     try {
+//       const response = await axios.get(artistUrl, { timeout: 10000 });
+//       const $ = cheerio.load(response.data);
+//       const artistName = $("h1").first().text();
+//       let monthlyStreams = $("div").eq(9).text();
 
-      if (monthlyStreams) {
-        monthlyStreams = parseInt(
-          monthlyStreams.split(" ")[0].replace(/,/g, ""),
-          10,
-        );
-      } else {
-        monthlyStreams = 0;
-      }
+//       if (monthlyStreams) {
+//         monthlyStreams = parseInt(
+//           monthlyStreams.split(" ")[0].replace(/,/g, ""),
+//           10,
+//         );
+//       } else {
+//         monthlyStreams = 0;
+//       }
 
-      // Log if monthlyStreams is 0
-      if (monthlyStreams === 0) {
-        console.warn(
-          `Attempt ${attempt}: Monthly listeners for artist ` +
-            `${artistName || artistCode} returned as 0.`,
-        );
-      }
+//       // Log if monthlyStreams is 0
+//       if (monthlyStreams === 0) {
+//         console.warn(
+//           `Attempt ${attempt}: Monthly listeners for artist ` +
+//             `${artistName || artistCode} returned as 0.`,
+//         );
+//       }
 
-      // If successful or final attempt, return the result
-      if (monthlyStreams > 0 || attempt === retries) {
-        return { artistName: artistName || "Unknown", monthlyStreams };
-      }
-    } catch (error) {
-      console.error(
-        `Attempt ${attempt}: Error fetching monthly listeners for artist ` +
-          `${artistCode}:`,
-        error,
-      );
+//       // If successful or final attempt, return the result
+//       if (monthlyStreams > 0 || attempt === retries) {
+//         return { artistName: artistName || "Unknown", monthlyStreams };
+//       }
+//     } catch (error) {
+//       console.error(
+//         `Attempt ${attempt}: Error fetching monthly listeners for artist ` +
+//           `${artistCode}:`,
+//         error,
+//       );
 
-      // If final attempt, return the result with a warning
-      if (attempt === retries) {
-        console.warn(
-          `Final attempt failed for artist ${artistCode}. ` +
-            `Returning 0 monthly streams.`,
-        );
-        return { artistName: "Unknown", monthlyStreams: 0 };
-      }
-    }
+//       // If final attempt, return the result with a warning
+//       if (attempt === retries) {
+//         console.warn(
+//           `Final attempt failed for artist ${artistCode}. ` +
+//             `Returning 0 monthly streams.`,
+//         );
+//         return { artistName: "Unknown", monthlyStreams: 0 };
+//       }
+//     }
 
-    // Optional: Add a delay before retrying
-    await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 sec
-  }
-}
+//     // Optional: Add a delay before retrying
+//     await new Promise((resolve) => setTimeout(resolve, 2000)); // Wait for 2 sec
+//   }
+// }
 
 exports.getArtistMonthlyListeners = functions.https.onRequest((req, res) => {
   cors(req, res, async () => {
     const artistCode = req.query.artistCode;
 
     try {
-      const artistData = await getMonthlyListeners(artistCode);
-      if (artistData.error) {
-        res.status(500).json({ error: artistData.error });
-      } else {
-        res.json(artistData);
+      const artistUrl = `https://open.spotify.com/artist/${artistCode}`;
+
+      const headers = {
+        "User-Agent":
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36",
+        "Accept-Language": "en-US,en;q=0.9",
+      };
+
+      const response = await axios.get(artistUrl, {
+        headers: headers,
+        timeout: 10000,
+      });
+
+      const $ = cheerio.load(response.data);
+      const artistName = $("title").text().split("|")[0].trim();
+      let monthlyStreams = 0;
+
+      // Method 1: Look for spans containing "monthly listeners" text
+      $("span").each((i, el) => {
+        const text = $(el).text();
+        if (text && text.includes("monthly listeners")) {
+          const match = text.match(/([\d,]+)/);
+          if (match) {
+            monthlyStreams = parseInt(match[1].replace(/,/g, ""), 10);
+            return false; // Break the loop once found
+          }
+        }
+      });
+
+      // Method 2: Look for the specific class that contains monthly listeners
+      if (monthlyStreams === 0) {
+        const spanWithClass = $("span.Ydwa1P5GkCggtLlSvphs");
+        if (
+          spanWithClass.length > 0 &&
+          spanWithClass.text().includes("monthly listeners")
+        ) {
+          const match = spanWithClass.text().match(/([\d,]+)/);
+          if (match) {
+            monthlyStreams = parseInt(match[1].replace(/,/g, ""), 10);
+          }
+        }
       }
+
+      // Method 3: Look for any element containing digits followed by "monthly listeners"
+      if (monthlyStreams === 0) {
+        $("*").each((i, el) => {
+          const text = $(el).text();
+          if (text && /[\d,]+ monthly listeners/.test(text)) {
+            const match = text.match(/([\d,]+)/);
+            if (match) {
+              monthlyStreams = parseInt(match[1].replace(/,/g, ""), 10);
+              return false; // Break the loop once found
+            }
+          }
+        });
+      }
+
+      // Method 4: As a fallback, check meta description for approximate number
+      if (monthlyStreams === 0) {
+        const metaDesc = $("meta[name='description']").attr("content");
+        if (metaDesc) {
+          const match = metaDesc.match(
+            /Artist · (\d+(?:\.\d+)?[KMB]?) monthly listeners/,
+          );
+          if (match) {
+            const listenerText = match[1];
+            if (listenerText.includes("K")) {
+              monthlyStreams = Math.round(
+                parseFloat(listenerText.replace("K", "")) * 1000,
+              );
+            } else if (listenerText.includes("M")) {
+              monthlyStreams = Math.round(
+                parseFloat(listenerText.replace("M", "")) * 1000000,
+              );
+            } else if (listenerText.includes("B")) {
+              monthlyStreams = Math.round(
+                parseFloat(listenerText.replace("B", "")) * 1000000000,
+              );
+            } else {
+              monthlyStreams = parseInt(listenerText, 10);
+            }
+          }
+        }
+      }
+
+      if (monthlyStreams === 0) {
+        console.warn(
+          `Could not find monthly listeners for artist ${artistName || artistCode}`,
+        );
+      }
+
+      res.json({ artistName, monthlyStreams });
     } catch (error) {
-      console.error("Final error after retries:", error);
-      res
-        .status(500)
-        .json({ error: "Error fetching artist data after retries." });
+      console.error("Error fetching artist data:", error);
+      res.status(500).json({ error: "Error fetching artist data." });
     }
   });
 });
@@ -212,8 +297,11 @@ exports.validate = functions.https.onRequest((req, res) => {
         continue;
       }
 
-      const { artistName, monthlyStreams } =
-        await getMonthlyListeners(artistCode);
+      // Use getArtistMonthlyListeners instead of getMonthlyListeners
+      const response = await axios.get(
+        `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artistCode}`,
+      );
+      const { artistName, monthlyStreams } = response.data;
       console.log(`Artist: ${artistName}, Monthly Streams: ${monthlyStreams}`);
 
       // Check minimum monthly listeners
@@ -277,8 +365,11 @@ exports.validate = functions.https.onRequest((req, res) => {
       // Populate the teamData with artist information
       for (const [slotKey, artist] of Object.entries(artists)) {
         const artistCode = extractArtistCode(artist.link);
-        const { artistName, monthlyStreams } =
-          await getMonthlyListeners(artistCode);
+        // Use getArtistMonthlyListeners instead of getMonthlyListeners
+        const response = await axios.get(
+          `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artistCode}`,
+        );
+        const { artistName, monthlyStreams } = response.data;
 
         teamData.artists[artistCode] = {
           name: artistName,
@@ -334,11 +425,7 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
     if (!selectedTeamID) {
       res.json({
         status: "error",
-        issues: [
-          {
-            message: "Team ID is missing.",
-          },
-        ],
+        issues: [{ message: "Team ID is missing." }],
       });
       return;
     }
@@ -349,11 +436,7 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
     if (!teamData) {
       res.json({
         status: "error",
-        issues: [
-          {
-            message: "Could not find the team data.",
-          },
-        ],
+        issues: [{ message: "Could not find the team data." }],
       });
       return;
     }
@@ -361,7 +444,21 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
     const validationIssues = [];
     const currentDate = new Date().toISOString().split("T")[0];
 
-    // Find the drop artist by link
+    // Check if artist was ever on the team (including inactive artists)
+    const hasArtistBeenOnTeam = Object.values(teamData.artists).some(
+      (artist) => artist.link === addArtistLink,
+    );
+
+    if (hasArtistBeenOnTeam) {
+      validationIssues.push({
+        message:
+          "This artist has previously been on your team and cannot be added again.",
+      });
+      res.json({ status: "error", issues: validationIssues });
+      return;
+    }
+
+    // Rest of the existing validation logic
     const dropArtistEntry = Object.entries(teamData.artists).find(
       ([, artist]) => artist.link === dropArtistLink && artist.active_flg === 1,
     );
@@ -417,8 +514,11 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
 
     // Validate the add artist
     const artistCode = extractArtistCode(addArtistLink);
-    const { artistName, monthlyStreams } =
-      await getMonthlyListeners(artistCode);
+    // Use getArtistMonthlyListeners instead of getMonthlyListeners
+    const response = await axios.get(
+      `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artistCode}`,
+    );
+    const { artistName, monthlyStreams } = response.data;
 
     console.log(
       `Add Artist: ${artistName}, Monthly Streams: ${monthlyStreams}`,
@@ -442,16 +542,6 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
         message:
           `The artist ${artistName} has less than 500 monthly listeners,` +
           ` which does not meet the minimum requirement.`,
-      });
-    }
-
-    if (
-      Object.values(teamData.artists).some(
-        (artist) => artist.link === addArtistLink && artist.active_flg === 1,
-      )
-    ) {
-      validationIssues.push({
-        message: `The artist ${artistName} is already on your team.`,
       });
     }
 
@@ -491,8 +581,11 @@ exports.saveTeam = functions.https.onRequest((req, res) => {
       if (Object.prototype.hasOwnProperty.call(artists, slot)) {
         const artist = artists[slot];
         const artistCode = extractArtistCode(artist.link);
-        const { artistName, monthlyStreams } =
-          await getMonthlyListeners(artistCode);
+        // Use getArtistMonthlyListeners instead of getMonthlyListeners
+        const response = await axios.get(
+          `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artistCode}`,
+        );
+        const { artistName, monthlyStreams } = response.data;
 
         teamData.artists[artistCode] = {
           name: artistName,
@@ -832,4 +925,330 @@ exports.getLeagues = functions.https.onRequest((req, res) => {
       res.status(500).json({ message: "Internal server error." });
     }
   });
+});
+
+exports.getSpotifyRecommendations = functions.https.onRequest(
+  async (req, res) => {
+    cors(req, res, async () => {
+      try {
+        console.log(
+          "Starting getSpotifyRecommendations function with params:",
+          {
+            hasAccessToken: !!req.body.accessToken,
+            leagueId: req.body.leagueId,
+          },
+        );
+
+        const { accessToken, leagueId } = req.body;
+
+        // Validate inputs
+        if (!accessToken || !leagueId) {
+          console.error("Missing required parameters:", {
+            accessToken: !!accessToken,
+            leagueId: !!leagueId,
+          });
+          return res.status(400).json({
+            status: "error",
+            message: "Missing required parameters",
+          });
+        }
+
+        // Get league data for thresholds
+        const leagueDoc = await admin
+          .firestore()
+          .collection("leagues")
+          .doc(leagueId)
+          .get();
+        if (!leagueDoc.exists) {
+          console.error("League not found:", leagueId);
+          return res.status(404).json({
+            status: "error",
+            message: "League not found",
+          });
+        }
+
+        const leagueData = leagueDoc.data();
+        console.log("League data retrieved:", {
+          leagueId,
+          hasThresholds: Boolean(leagueData.listenerThresholds),
+        });
+
+        // Get user's top artists from Spotify
+        const topArtistsResponse = await fetch(
+          "https://api.spotify.com/v1/me/top/artists?limit=50",
+          {
+            headers: { Authorization: `Bearer ${accessToken}` },
+          },
+        );
+
+        if (!topArtistsResponse.ok) {
+          const errorData = await topArtistsResponse.text();
+          console.error("Spotify API error:", {
+            status: topArtistsResponse.status,
+            response: errorData,
+          });
+          return res.status(500).json({
+            status: "error",
+            message: "Failed to fetch top artists from Spotify",
+          });
+        }
+
+        const topArtistsData = await topArtistsResponse.json();
+        console.log("Retrieved top artists from Spotify:", {
+          count: topArtistsData.items && topArtistsData.items.length,
+        });
+
+        // Get monthly listeners for each artist
+        const artistsWithListeners = await Promise.all(
+          (topArtistsData.items || []).map(async (artist) => {
+            try {
+              const listenersResponse = await fetch(
+                `https://us-central1-fantasy-musicpleague-test.cloudfunctions.net/getArtistMonthlyListeners?artistCode=${artist.id}`,
+              );
+              const listenersData = await listenersResponse.json();
+
+              return Object.assign({}, artist, {
+                monthlyStreams: listenersData.monthlyStreams || 0,
+              });
+            } catch (error) {
+              console.error("Error getting monthly listeners for artist:", {
+                artistId: artist.id,
+                error: error.message,
+              });
+              return Object.assign({}, artist, {
+                monthlyStreams: 0,
+              });
+            }
+          }),
+        );
+
+        // Sort artists into slots based on thresholds
+        const recommendations = {
+          slot_1: [],
+          slot_2: [],
+          slot_3: [],
+          slot_4: [],
+          slot_5: [],
+        };
+
+        const thresholds = leagueData.listenerThresholds;
+
+        artistsWithListeners.forEach((artist) => {
+          const listeners = artist.monthlyStreams;
+
+          // Find appropriate slot based on listener count
+          Object.entries(thresholds).forEach(([slot, threshold]) => {
+            if (listeners <= threshold && recommendations[slot].length < 10) {
+              recommendations[slot].push(artist);
+            }
+          });
+        });
+
+        console.log("Successfully processed recommendations:", {
+          totalArtists: artistsWithListeners.length,
+          slotsWithCounts: Object.entries(recommendations).map(
+            (entry) => `${entry[0]}: ${entry[1].length}`,
+          ),
+        });
+
+        return res.status(200).json({
+          status: "success",
+          recommendations,
+          thresholds,
+        });
+      } catch (error) {
+        console.error("Function error:", error);
+        return res.status(500).json({
+          status: "error",
+          message: error.message || "Failed to get recommendations",
+        });
+      }
+    });
+  },
+);
+
+exports.exchangeSpotifyCode = functions.https.onRequest(async (req, res) => {
+  cors(req, res, async () => {
+    try {
+      const { code, redirectUri } = req.body;
+
+      // Get credentials from Firebase config
+      const clientId = functions.config().spotify.client_id;
+      const clientSecret = functions.config().spotify.client_secret;
+
+      // Create base64 encoded auth string
+      const auth = Buffer.from(`${clientId}:${clientSecret}`).toString(
+        "base64",
+      );
+
+      const params = new URLSearchParams({
+        grant_type: "authorization_code",
+        code: code,
+        redirect_uri: redirectUri,
+      });
+
+      const response = await axios.post(
+        "https://accounts.spotify.com/api/token",
+        params.toString(),
+        {
+          headers: {
+            Authorization: `Basic ${auth}`,
+            "Content-Type": "application/x-www-form-urlencoded",
+          },
+        },
+      );
+
+      res.json(response.data);
+    } catch (error) {
+      console.error(
+        "Token exchange error:",
+        error.response && error.response.data ? error.response.data : error,
+      );
+      res.status(500).json({
+        error:
+          error.response && error.response.data
+            ? error.response.data
+            : error.message,
+      });
+    }
+  });
+});
+
+exports.storeSpotifyTopArtists = functions.https.onRequest((req, res) => {
+  // Move all logic inside the CORS callback
+  return cors(req, res, async () => {
+    try {
+      const { teamId, artists } = req.body;
+
+      if (!teamId || !artists) {
+        res.status(400).json({ error: "Missing required parameters" });
+        return;
+      }
+
+      // Store in Firestore
+      await db.collection("teams").doc(teamId).update({
+        spotifyTopArtists: artists,
+        spotifyLastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+      res.json({ status: "success" });
+    } catch (error) {
+      console.error("Error storing top artists:", error);
+      // Always return JSON, even for errors
+      res.status(500).json({
+        error: error.message,
+        status: "error",
+      });
+    }
+  });
+});
+
+exports.updateSpotifyFavorites = functions.pubsub
+  .schedule("every 24 hours")
+  .onRun(async (context) => {
+    try {
+      // Get all users with Spotify tokens
+      const usersSnapshot = await db
+        .collection("users")
+        .where("spotifyAccessToken", "!=", null)
+        .get();
+
+      for (const userDoc of usersSnapshot.docs) {
+        const userData = userDoc.data();
+        const spotifyToken = userData.spotifyAccessToken;
+
+        // Get user's top artists
+        const [mediumTerm] = await Promise.all([
+          axios.get("https://api.spotify.com/v1/me/top/artists", {
+            params: { time_range: "medium_term", limit: 50 },
+            headers: { Authorization: `Bearer ${spotifyToken}` },
+          }),
+        ]);
+
+        // Store top artists with their rank
+        const topArtists = mediumTerm.data.items.map((artist, index) => ({
+          id: artist.id,
+          name: artist.name,
+          rank: index + 1,
+        }));
+
+        // Update user document with favorites
+        await userDoc.ref.update({
+          spotifyTopArtists: topArtists,
+          spotifyLastUpdated: admin.firestore.FieldValue.serverTimestamp(),
+        });
+      }
+    } catch (error) {
+      console.error("Error updating Spotify favorites:", error);
+    }
+  });
+
+exports.refreshSpotifyToken = functions.https.onCall(async (data, context) => {
+  const { teamId } = data;
+
+  try {
+    // Get the team document
+    const teamDoc = await admin
+      .firestore()
+      .collection("teams")
+      .doc(teamId)
+      .get();
+
+    if (!teamDoc.exists) {
+      return { status: "error", message: "Team not found" };
+    }
+
+    const teamData = teamDoc.data();
+
+    // Check if we have stored tokens
+    if (!teamData.spotifyTokens || !teamData.spotifyTokens.refreshToken) {
+      return { status: "error", message: "No refresh token available" };
+    }
+
+    // Get Spotify credentials
+    const clientId = functions.config().spotify.client_id;
+    const clientSecret = functions.config().spotify.client_secret;
+
+    // Create auth string
+    const auth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+
+    // Request new access token using refresh token
+    const response = await axios.post(
+      "https://accounts.spotify.com/api/token",
+      new URLSearchParams({
+        grant_type: "refresh_token",
+        refresh_token: teamData.spotifyTokens.refreshToken,
+      }).toString(),
+      {
+        headers: {
+          Authorization: `Basic ${auth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+      },
+    );
+
+    // Update the stored tokens
+    await admin
+      .firestore()
+      .collection("teams")
+      .doc(teamId)
+      .update({
+        "spotifyTokens.accessToken": response.data.access_token,
+        "spotifyTokens.expiresAt": new Date(
+          Date.now() + response.data.expires_in * 1000,
+        ).toISOString(),
+        "spotifyTokens.lastUpdated":
+          admin.firestore.FieldValue.serverTimestamp(),
+      });
+
+    // Return the new access token
+    return {
+      status: "success",
+      accessToken: response.data.access_token,
+      expiresIn: response.data.expires_in,
+    };
+  } catch (error) {
+    console.error("Error refreshing token:", error);
+    return { status: "error", message: error.message };
+  }
 });

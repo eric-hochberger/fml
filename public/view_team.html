@@ -129,6 +129,15 @@
           if (teamDoc.exists()) {
             const teamData = teamDoc.data();
             document.getElementById("teamName").textContent = teamData.teamname;
+
+            // Add user email below team name using the correct field
+            const ownerEmail = document.createElement("div");
+            ownerEmail.textContent = `Owner: ${teamData.userEmail}`;
+            ownerEmail.style.fontSize = "14px";
+            ownerEmail.style.color = "#fff";
+            ownerEmail.style.marginTop = "5px";
+            document.getElementById("teamName").appendChild(ownerEmail);
+
             displayRoster(teamData);
           } else {
             alert("Team not found. Redirecting to My Teams.");

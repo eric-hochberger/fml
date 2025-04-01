@@ -25,3 +25,7 @@ playlist_updates.py
 .DS_Store
 
 league_playlist.py
+
+scripts/
+
+outputs/
