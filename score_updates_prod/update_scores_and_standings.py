@@ -50,7 +50,7 @@ def get_monthly_listeners(artist_code, retries=3):
             meta_description = web.find('meta', {'name': 'description'})
             if meta_description:
                 description = meta_description.get('content', '')
-                match = re.search(r'(\d+(?:,\d+)?[KMB]?) monthly listeners', description)
+                match = re.search(r'(\d+(?:\.\d+)?(?:,\d+)?[KMB]?) monthly listeners', description)
                 if match:
                     listeners_str = match.group(1)
                     # Convert K/M/B to actual numbers
