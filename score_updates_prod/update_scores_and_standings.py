@@ -37,28 +37,53 @@ def get_monthly_listeners(artist_code, retries=3):
     artist_code = extract_artist_id(artist_code)
     artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     for attempt in range(retries):
-        response = requests.get(artist_url)
-        web = BeautifulSoup(response.content, 'html.parser')
-        div_content = [div.get_text() for div in web.find_all('div')]
-        h1_content = [h1.get_text() for h1 in web.find_all('h1')]
-        artist_name = h1_content[0] if h1_content else None
+        try:
+            response = requests.get(artist_url, headers=headers)
+            web = BeautifulSoup(response.content, 'html.parser')
+            
+            # Look for meta tags containing artist info
+            meta_description = web.find('meta', {'name': 'description'})
+            if meta_description:
+                description = meta_description.get('content', '')
+                # Extract monthly listeners from description
+                match = re.search(r'(\d+(?:,\d+)?[KMB]?) monthly listeners', description)
+                if match:
+                    listeners_str = match.group(1)
+                    # Convert K/M/B to actual numbers
+                    multiplier = {
+                        'K': 1000,
+                        'M': 1000000,
+                        'B': 1000000000
+                    }
+                    
+                    # Remove commas and get the numeric part
+                    base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
+                    
+                    # Apply multiplier if K/M/B is present
+                    if listeners_str[-1] in multiplier:
+                        monthly_streams = int(base_num * multiplier[listeners_str[-1]])
+                    else:
+                        monthly_streams = int(base_num)
+                        
+                    # Get artist name from meta title
+                    meta_title = web.find('meta', {'property': 'og:title'})
+                    artist_name = meta_title.get('content', '').split('|')[0].strip() if meta_title else None
+                    
+                    return artist_name, monthly_streams
 
-        monthly_streams = div_content[9] if len(div_content) > 9 else None
-        if monthly_streams:
-            try:
-                monthly_streams = int(monthly_streams.split(" ")[0].replace(",", ""))
-            except ValueError:
-                monthly_streams = 0
-
-        if monthly_streams != 0:
-            return artist_name, monthly_streams
-        else:
-            logging.info(f"Attempt {attempt + 1}: Monthly listeners for artist {artist_name or artist_code} returned as 0. Retrying...")
+            logging.info(f"Attempt {attempt + 1}: Could not find monthly listeners in page content")
             time.sleep(2)  # Wait before retrying
-
-    logging.error(f"Failed to get valid monthly listeners for artist {artist_name or artist_code} after {retries} attempts.")
-    return artist_name, monthly_streams
+            
+        except Exception as e:
+            logging.error(f"Error getting monthly listeners: {str(e)}")
+            time.sleep(2)  # Wait before retrying
+    
+    return None, None
 
 def update_weeks_retained(df):
     # Calculate weeks retained for each artist individually
@@ -162,15 +187,24 @@ def update_firestore():
         for artist_code, artist_info in team_data['artists'].items():
             if artist_info.get('active_flg', 0) == 1:  # Only update active artists
                 artist_name, monthly_streams = get_monthly_listeners(artist_code)
-                team_data['artists'][artist_code][current_date] = monthly_streams
-                print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
+                if monthly_streams is not None:  # Only update if we got valid data
+                    team_data['artists'][artist_code][current_date] = monthly_streams
+                    print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
 
-                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-                artist_df['artist_code'] = artist_code
-                artists_data.append(artist_df)
+                    # Create DataFrame with non-null values only
+                    artist_df = pd.DataFrame({
+                        'artist_code': [artist_code],
+                        **{k: [v] for k, v in team_data['artists'][artist_code].items() if isinstance(v, (int, float))}
+                    })
+                    artists_data.append(artist_df)
+                else:
+                    print(f"Could not get monthly listeners for {artist_code}")
         
         if artists_data:
-            df = pd.concat(artists_data)
+            # Ensure all DataFrames have the same columns before concatenation
+            all_columns = set().union(*(df.columns for df in artists_data))
+            artists_data = [df.reindex(columns=list(all_columns)) for df in artists_data]
+            df = pd.concat(artists_data, ignore_index=True)
             df = update_weeks_retained(df)
             leagues[team_league_id][team_data['teamname']] = df
         
