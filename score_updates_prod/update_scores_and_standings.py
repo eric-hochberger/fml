@@ -247,20 +247,21 @@ def update_firestore():
 
         artists_data = []
         for artist_code, artist_info in team_data['artists'].items():
-            if artist_info.get('active_flg', 0) == 1:  # Only update active artists
+            # Only update monthly listeners for active artists
+            if artist_info.get('active_flg', 0) == 1:
                 artist_name, monthly_streams = get_monthly_listeners(artist_code)
-                if monthly_streams is not None:  # Only update if we got valid data
+                if monthly_streams is not None:
                     team_data['artists'][artist_code][current_date] = monthly_streams
                     print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
-
-                    # Create DataFrame with non-null values only
-                    artist_df = pd.DataFrame({
-                        'artist_code': [artist_code],
-                        **{k: [v] for k, v in team_data['artists'][artist_code].items() if isinstance(v, (int, float))}
-                    })
-                    artists_data.append(artist_df)
                 else:
                     print(f"Could not get monthly listeners for {artist_code}")
+
+            # Always add artist data to DataFrame for scoring, regardless of active_flg
+            artist_df = pd.DataFrame({
+                'artist_code': [artist_code],
+                **{k: [v] for k, v in team_data['artists'][artist_code].items() if isinstance(v, (int, float))}
+            })
+            artists_data.append(artist_df)
         
         if artists_data:
             # Ensure all DataFrames have the same columns before concatenation
