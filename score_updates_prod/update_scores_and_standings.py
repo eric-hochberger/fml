@@ -107,6 +107,18 @@ def get_monthly_listeners(artist_code, retries=3):
                     except (ValueError, KeyError):
                         continue
 
+            # Method 2.5: Try finding spans and look for listener count pattern
+            span_content = [span.get_text() for span in web.find_all('span')]
+            for text in span_content:
+                match = re.search(r'(\d+(?:,\d+)*) monthly listeners', text)
+                if match:
+                    try:
+                        monthly_streams = int(match.group(1).replace(',', ''))
+                        if monthly_streams > 0:
+                            return artist_name, monthly_streams
+                    except ValueError:
+                        continue
+
             # Method 3: Look for structured data in script tags
             for script in web.find_all('script', type='application/ld+json'):
                 try:
