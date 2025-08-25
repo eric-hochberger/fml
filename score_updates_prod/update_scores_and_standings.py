@@ -14,7 +14,7 @@ import json
 # Set up logging
 logging.basicConfig(filename='listener_errors.log', level=logging.INFO)
 
-# Initialize Firebase Admin with timeout configuration
+# Initialize Firebase Admin
 if not firebase_admin._apps:
     firebase_credentials = os.getenv('FIREBASE_SERVICE_ACCOUNT')
     cred = credentials.Certificate(json.loads(firebase_credentials))
@@ -22,21 +22,8 @@ if not firebase_admin._apps:
         'projectId': 'fantasy-music-league-257a3'
     })
 
-# Configure Firestore client with longer timeouts
+# Initialize Firestore client (remove the incorrect _client_options configuration)
 db = firestore.client()
-# Set client options for longer timeouts
-db._client_options = {
-    'api_endpoint': 'firestore.googleapis.com',
-    'client_options': {
-        'timeout': 300.0,  # 5 minutes timeout
-        'retry': {
-            'initial': 1.0,
-            'maximum': 10.0,
-            'multiplier': 2.0,
-            'deadline': 300.0
-        }
-    }
-}
 
 def extract_artist_id(artist_identifier):
     # Check if it's a full Spotify URL
@@ -251,7 +238,8 @@ def update_firestore():
     for attempt in range(max_retries):
         try:
             # Use get() instead of stream() for better timeout control
-            docs = teams_ref.get()
+            # Add timeout parameter to the get() call
+            docs = teams_ref.get(timeout=300)  # 5 minute timeout
             break
         except Exception as e:
             if attempt == max_retries - 1:
