@@ -42,18 +42,33 @@ def get_monthly_listeners(artist_code, retries=3):
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
     }
     
+    print(f"Attempting to get monthly listeners for {artist_code} from {artist_url}")
+    
     for attempt in range(retries):
         try:
-            response = requests.get(artist_url, headers=headers)
+            print(f"Attempt {attempt + 1} for {artist_code}")
+            response = requests.get(artist_url, headers=headers, timeout=30)
+            
+            # Check if the request was successful
+            if response.status_code != 200:
+                print(f"HTTP {response.status_code} error for {artist_code}")
+                continue
+                
             web = BeautifulSoup(response.content, 'html.parser')
+            
+            # Debug: Print some basic info about the page
+            title = web.find('title')
+            print(f"Page title for {artist_code}: {title.get_text() if title else 'No title found'}")
             
             # Method 1: Try meta description first
             meta_description = web.find('meta', {'name': 'description'})
             if meta_description:
                 description = meta_description.get('content', '')
+                print(f"Meta description for {artist_code}: {description[:100]}...")
                 match = re.search(r'(\d+(?:\.\d+)?(?:,\d+)?[KMB]?) monthly listeners', description)
                 if match:
                     listeners_str = match.group(1)
+                    print(f"Found listeners in meta description: {listeners_str}")
                     # Convert K/M/B to actual numbers
                     multiplier = {
                         'K': 1000,
@@ -75,12 +90,14 @@ def get_monthly_listeners(artist_code, retries=3):
                     artist_name = meta_title.get('content', '').split('|')[0].strip() if meta_title else None
                     
                     if monthly_streams > 0:
+                        print(f"Successfully found {monthly_streams} monthly listeners for {artist_name}")
                         return artist_name, monthly_streams
 
             # Method 2: Try finding all divs and look for listener count pattern
             div_content = [div.get_text() for div in web.find_all('div')]
             h1_content = [h1.get_text() for h1 in web.find_all('h1')]
             artist_name = h1_content[0] if h1_content else None
+            print(f"Artist name from H1: {artist_name}")
 
             # Look for monthly listeners in div content
             for text in div_content:
@@ -90,6 +107,7 @@ def get_monthly_listeners(artist_code, retries=3):
                     try:
                         monthly_streams = int(match.group(1).replace(',', ''))
                         if monthly_streams > 0:
+                            print(f"Found {monthly_streams} monthly listeners in div content")
                             return artist_name, monthly_streams
                     except ValueError:
                         continue
@@ -104,6 +122,7 @@ def get_monthly_listeners(artist_code, retries=3):
                         suffix = num_str[-1]
                         monthly_streams = int(base * multiplier[suffix])
                         if monthly_streams > 0:
+                            print(f"Found {monthly_streams} monthly listeners in div content (with suffix)")
                             return artist_name, monthly_streams
                     except (ValueError, KeyError):
                         continue
@@ -116,6 +135,7 @@ def get_monthly_listeners(artist_code, retries=3):
                     try:
                         monthly_streams = int(match.group(1).replace(',', ''))
                         if monthly_streams > 0:
+                            print(f"Found {monthly_streams} monthly listeners in span content")
                             return artist_name, monthly_streams
                     except ValueError:
                         continue
@@ -129,23 +149,28 @@ def get_monthly_listeners(artist_code, retries=3):
                         if match:
                             listeners_str = match.group(1)
                             base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
+                            multiplier = {'K': 1000, 'M': 1000000, 'B': 1000000000}
                             if listeners_str[-1] in multiplier:
                                 monthly_streams = int(base_num * multiplier[listeners_str[-1]])
                             else:
                                 monthly_streams = int(base_num)
                             if monthly_streams > 0:
+                                print(f"Found {monthly_streams} monthly listeners in structured data")
                                 return artist_name, monthly_streams
                 except (json.JSONDecodeError, AttributeError):
                     continue
 
-            logging.info(f"Attempt {attempt + 1}: Could not find monthly listeners for {artist_code}")
+            print(f"Attempt {attempt + 1}: Could not find monthly listeners for {artist_code}")
             time.sleep(2)  # Wait before retrying
             
+        except requests.exceptions.RequestException as e:
+            print(f"Request error for {artist_code}: {str(e)}")
+            time.sleep(2)
         except Exception as e:
-            logging.error(f"Error getting monthly listeners for {artist_code}: {str(e)}")
-            time.sleep(2)  # Wait before retrying
+            print(f"Unexpected error for {artist_code}: {str(e)}")
+            time.sleep(2)
     
-    logging.error(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
+    print(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
     return None, None
 
 def update_weeks_retained(df):
