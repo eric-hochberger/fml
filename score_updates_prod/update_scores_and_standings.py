@@ -1,6 +1,8 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
@@ -38,8 +40,31 @@ def get_monthly_listeners(artist_code, retries=3):
     artist_code = extract_artist_id(artist_code)
     artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
+    # Create a session with retry strategy
+    session = requests.Session()
+    retry_strategy = Retry(
+        total=3,
+        backoff_factor=1,
+        status_forcelist=[429, 500, 502, 503, 504],
+    )
+    adapter = HTTPAdapter(max_retries=retry_strategy)
+    session.mount("http://", adapter)
+    session.mount("https://", adapter)
+    
+    # More realistic headers
     headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
+        'Accept-Language': 'en-US,en;q=0.9',
+        'Accept-Encoding': 'gzip, deflate, br',
+        'DNT': '1',
+        'Connection': 'keep-alive',
+        'Upgrade-Insecure-Requests': '1',
+        'Sec-Fetch-Dest': 'document',
+        'Sec-Fetch-Mode': 'navigate',
+        'Sec-Fetch-Site': 'none',
+        'Sec-Fetch-User': '?1',
+        'Cache-Control': 'max-age=0'
     }
     
     print(f"Attempting to get monthly listeners for {artist_code} from {artist_url}")
@@ -47,7 +72,12 @@ def get_monthly_listeners(artist_code, retries=3):
     for attempt in range(retries):
         try:
             print(f"Attempt {attempt + 1} for {artist_code}")
-            response = requests.get(artist_url, headers=headers, timeout=30)
+            
+            # Add some delay between requests
+            if attempt > 0:
+                time.sleep(5 + (attempt * 2))  # Progressive delay
+            
+            response = session.get(artist_url, headers=headers, timeout=30)
             
             # Check if the request was successful
             if response.status_code != 200:
@@ -59,6 +89,11 @@ def get_monthly_listeners(artist_code, retries=3):
             # Debug: Print some basic info about the page
             title = web.find('title')
             print(f"Page title for {artist_code}: {title.get_text() if title else 'No title found'}")
+            
+            # Check if we got the "Unsupported browser" page
+            if title and "Unsupported browser" in title.get_text():
+                print(f"Got 'Unsupported browser' page for {artist_code}")
+                continue
             
             # Method 1: Try meta description first
             meta_description = web.find('meta', {'name': 'description'})
