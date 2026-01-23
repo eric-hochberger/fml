@@ -1,8 +1,8 @@
 name: Update Listeners Daily
 
 on:
-  # schedule:
-  #   - cron: '0 10 * * *'  # This runs at 6 AM ET every day
+  schedule:
+    - cron: '0 10 * * *'  # This runs at 6 AM ET every day
   workflow_dispatch:  # Allows manual triggering
 
 jobs:
