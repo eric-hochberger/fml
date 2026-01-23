@@ -1,9 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 import requests
-from requests.adapters import HTTPAdapter
-from urllib3.util.retry import Retry
-from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 from datetime import datetime
@@ -38,36 +35,11 @@ def extract_artist_id(artist_identifier):
 def get_monthly_listeners(artist_code, retries=3):
     # Clean the artist code first
     artist_code = extract_artist_id(artist_code)
-    artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
-    # Create a session with retry strategy
-    session = requests.Session()
-    retry_strategy = Retry(
-        total=3,
-        backoff_factor=1,
-        status_forcelist=[429, 500, 502, 503, 504],
-    )
-    adapter = HTTPAdapter(max_retries=retry_strategy)
-    session.mount("http://", adapter)
-    session.mount("https://", adapter)
+    # Use the Cloud Function instead of scraping directly to avoid bot detection
+    cloud_function_url = f"https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getArtistMonthlyListeners?artistCode={artist_code}"
     
-    # More realistic headers
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7',
-        'Accept-Language': 'en-US,en;q=0.9',
-        'Accept-Encoding': 'gzip, deflate, br',
-        'DNT': '1',
-        'Connection': 'keep-alive',
-        'Upgrade-Insecure-Requests': '1',
-        'Sec-Fetch-Dest': 'document',
-        'Sec-Fetch-Mode': 'navigate',
-        'Sec-Fetch-Site': 'none',
-        'Sec-Fetch-User': '?1',
-        'Cache-Control': 'max-age=0'
-    }
-    
-    print(f"Attempting to get monthly listeners for {artist_code} from {artist_url}")
+    print(f"Attempting to get monthly listeners for {artist_code} via Cloud Function")
     
     for attempt in range(retries):
         try:
@@ -75,131 +47,38 @@ def get_monthly_listeners(artist_code, retries=3):
             
             # Add some delay between requests
             if attempt > 0:
-                time.sleep(5 + (attempt * 2))  # Progressive delay
+                time.sleep(2 + (attempt * 1))  # Progressive delay
             
-            response = session.get(artist_url, headers=headers, timeout=30)
+            response = requests.get(cloud_function_url, timeout=30)
             
             # Check if the request was successful
             if response.status_code != 200:
-                print(f"HTTP {response.status_code} error for {artist_code}")
-                continue
-                
-            web = BeautifulSoup(response.content, 'html.parser')
-            
-            # Debug: Print some basic info about the page
-            title = web.find('title')
-            print(f"Page title for {artist_code}: {title.get_text() if title else 'No title found'}")
-            
-            # Check if we got the "Unsupported browser" page
-            if title and "Unsupported browser" in title.get_text():
-                print(f"Got 'Unsupported browser' page for {artist_code}")
+                print(f"HTTP {response.status_code} error for {artist_code}: {response.text}")
                 continue
             
-            # Method 1: Try meta description first
-            meta_description = web.find('meta', {'name': 'description'})
-            if meta_description:
-                description = meta_description.get('content', '')
-                print(f"Meta description for {artist_code}: {description[:100]}...")
-                match = re.search(r'(\d+(?:\.\d+)?(?:,\d+)?[KMB]?) monthly listeners', description)
-                if match:
-                    listeners_str = match.group(1)
-                    print(f"Found listeners in meta description: {listeners_str}")
-                    # Convert K/M/B to actual numbers
-                    multiplier = {
-                        'K': 1000,
-                        'M': 1000000,
-                        'B': 1000000000
-                    }
-                    
-                    # Remove commas and get the numeric part
-                    base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
-                    
-                    # Apply multiplier if K/M/B is present
-                    if listeners_str[-1] in multiplier:
-                        monthly_streams = int(base_num * multiplier[listeners_str[-1]])
-                    else:
-                        monthly_streams = int(base_num)
-                    
-                    # Get artist name
-                    meta_title = web.find('meta', {'property': 'og:title'})
-                    artist_name = meta_title.get('content', '').split('|')[0].strip() if meta_title else None
-                    
-                    if monthly_streams > 0:
-                        print(f"Successfully found {monthly_streams} monthly listeners for {artist_name}")
-                        return artist_name, monthly_streams
-
-            # Method 2: Try finding all divs and look for listener count pattern
-            div_content = [div.get_text() for div in web.find_all('div')]
-            h1_content = [h1.get_text() for h1 in web.find_all('h1')]
-            artist_name = h1_content[0] if h1_content else None
-            print(f"Artist name from H1: {artist_name}")
-
-            # Look for monthly listeners in div content
-            for text in div_content:
-                # Pattern 1: Direct number with "monthly listeners"
-                match = re.search(r'(\d+(?:,\d+)*) monthly listeners', text)
-                if match:
-                    try:
-                        monthly_streams = int(match.group(1).replace(',', ''))
-                        if monthly_streams > 0:
-                            print(f"Found {monthly_streams} monthly listeners in div content")
-                            return artist_name, monthly_streams
-                    except ValueError:
-                        continue
-
-                # Pattern 2: Number with K/M/B suffix
-                match = re.search(r'(\d+(?:\.\d+)?[KMB]) monthly listeners', text)
-                if match:
-                    try:
-                        num_str = match.group(1)
-                        multiplier = {'K': 1000, 'M': 1000000, 'B': 1000000000}
-                        base = float(num_str[:-1])
-                        suffix = num_str[-1]
-                        monthly_streams = int(base * multiplier[suffix])
-                        if monthly_streams > 0:
-                            print(f"Found {monthly_streams} monthly listeners in div content (with suffix)")
-                            return artist_name, monthly_streams
-                    except (ValueError, KeyError):
-                        continue
-
-            # Method 2.5: Try finding spans and look for listener count pattern
-            span_content = [span.get_text() for span in web.find_all('span')]
-            for text in span_content:
-                match = re.search(r'(\d+(?:,\d+)*) monthly listeners', text)
-                if match:
-                    try:
-                        monthly_streams = int(match.group(1).replace(',', ''))
-                        if monthly_streams > 0:
-                            print(f"Found {monthly_streams} monthly listeners in span content")
-                            return artist_name, monthly_streams
-                    except ValueError:
-                        continue
-
-            # Method 3: Look for structured data in script tags
-            for script in web.find_all('script', type='application/ld+json'):
-                try:
-                    data = json.loads(script.string)
-                    if isinstance(data, dict) and 'description' in data:
-                        match = re.search(r'(\d+(?:,\d+)?[KMB]?) monthly listeners', data['description'])
-                        if match:
-                            listeners_str = match.group(1)
-                            base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
-                            multiplier = {'K': 1000, 'M': 1000000, 'B': 1000000000}
-                            if listeners_str[-1] in multiplier:
-                                monthly_streams = int(base_num * multiplier[listeners_str[-1]])
-                            else:
-                                monthly_streams = int(base_num)
-                            if monthly_streams > 0:
-                                print(f"Found {monthly_streams} monthly listeners in structured data")
-                                return artist_name, monthly_streams
-                except (json.JSONDecodeError, AttributeError):
-                    continue
-
-            print(f"Attempt {attempt + 1}: Could not find monthly listeners for {artist_code}")
-            time.sleep(2)  # Wait before retrying
+            data = response.json()
+            
+            # Check if we got an error response
+            if 'error' in data:
+                print(f"Error from Cloud Function for {artist_code}: {data['error']}")
+                continue
+            
+            # Extract artist name and monthly streams
+            artist_name = data.get('artistName')
+            monthly_streams = data.get('monthlyStreams', 0)
+            
+            if monthly_streams > 0:
+                print(f"Successfully found {monthly_streams} monthly listeners for {artist_name}")
+                return artist_name, monthly_streams
+            else:
+                print(f"Cloud Function returned 0 monthly listeners for {artist_code}")
+                continue
             
         except requests.exceptions.RequestException as e:
             print(f"Request error for {artist_code}: {str(e)}")
+            time.sleep(2)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error for {artist_code}: {str(e)}")
             time.sleep(2)
         except Exception as e:
             print(f"Unexpected error for {artist_code}: {str(e)}")
