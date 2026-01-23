@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>Create League</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <style>
       body {
         font-family: "Helvetica Neue", Arial, sans-serif;
@@ -55,6 +56,7 @@
       button:hover {
         background-color: #333333;
       }
+
       .back-btn {
         margin-top: 20px;
         text-decoration: none;
@@ -62,12 +64,66 @@
         font-weight: bold;
       }
       .error-message {
-        color: red;
-        margin-bottom: 15px;
+        color: #f44336;
+        margin-top: 10px;
+        text-align: center;
       }
       .success-message {
         color: green;
         margin-bottom: 15px;
+      }
+
+      /* Mobile-specific styles */
+      @media screen and (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 15px;
+          margin: 10px auto;
+        }
+
+        .nav-tabs {
+          justify-content: center;
+        }
+
+        .nav-tabs li {
+          margin: 5px;
+        }
+
+        .nav-tabs li a {
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+
+        .form-group {
+          margin-bottom: 15px;
+        }
+
+        .form-group label {
+          font-size: 14px;
+        }
+
+        .form-group input,
+        .form-group select {
+          width: 100%;
+          padding: 8px;
+          font-size: 14px;
+        }
+
+        .btn {
+          width: 100%;
+          max-width: 300px;
+          margin: 10px auto;
+          font-size: 14px;
+        }
+
+        .header {
+          font-size: 20px;
+          padding: 8px;
+        }
+
+        .error-message {
+          font-size: 14px;
+        }
       }
     </style>
   </head>
@@ -273,7 +329,7 @@
                 "Content-Type": "application/json",
               },
               body: JSON.stringify(data),
-            }
+            },
           );
 
           const result = await response.json();

@@ -1,7 +1,8 @@
-<!DOCTYPE html>
+<!doctype html>
 <html>
   <head>
     <title>Join League</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/images/playandrlogo.png" />
     <style>
       * {
@@ -84,8 +85,8 @@
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        text-align: center;
       }
+
       h1 {
         font-size: 32px;
         margin-bottom: 20px;
@@ -141,13 +142,83 @@
         font-weight: bold;
       }
       .error-message {
-        color: red;
-        margin-bottom: 20px;
+        color: #f44336;
+        margin-top: 10px;
+        text-align: center;
       }
 
       .success-message {
         color: green;
         margin-bottom: 20px;
+      }
+
+      /* Mobile-specific styles */
+      @media screen and (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 15px;
+          margin: 10px auto;
+        }
+
+        .nav-tabs {
+          justify-content: center;
+        }
+
+        .nav-tabs li {
+          margin: 5px;
+        }
+
+        .nav-tabs li a {
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+
+        .form-group {
+          margin-bottom: 15px;
+        }
+
+        .form-group label {
+          font-size: 14px;
+        }
+
+        .form-group input {
+          width: 100%;
+          padding: 8px;
+          font-size: 14px;
+        }
+
+        .btn {
+          width: 100%;
+          max-width: 300px;
+          margin: 10px auto;
+          font-size: 14px;
+        }
+
+        .header {
+          font-size: 20px;
+          padding: 8px;
+        }
+
+        .error-message {
+          font-size: 14px;
+        }
+
+        .league-list {
+          width: 100%;
+        }
+
+        .league-item {
+          padding: 10px;
+          margin: 5px 0;
+        }
+
+        .league-name {
+          font-size: 16px;
+        }
+
+        .league-details {
+          font-size: 14px;
+        }
       }
     </style>
   </head>
@@ -260,8 +331,8 @@
 
           const response = await fetch(
             `https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getLeagues?email=${encodeURIComponent(
-              userEmail
-            )}`
+              userEmail,
+            )}`,
           );
 
           if (!response.ok) {
@@ -331,7 +402,7 @@
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify(data),
-            }
+            },
           );
 
           const result = await response.json();

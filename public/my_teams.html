@@ -2,6 +2,7 @@
 <html lang="en">
   <head>
     <title>My Teams</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/images/playandrlogo.png" />
     <style>
       /* Reset default margins and paddings */
@@ -150,6 +151,86 @@
         color: #555;
         margin-top: 20px;
       }
+
+      .spotify-bonus-info {
+        color: #1db954;
+        cursor: help;
+        font-size: 1.2em;
+        display: flex;
+        align-items: center;
+        position: relative;
+      }
+
+      /* Mobile-specific styles */
+      @media screen and (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 15px;
+          margin: 10px auto;
+        }
+
+        .nav-tabs {
+          justify-content: center;
+        }
+
+        .nav-tabs li {
+          margin: 5px;
+        }
+
+        .nav-tabs li a {
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+
+        .team-card {
+          width: 100%;
+          margin: 10px 0;
+        }
+
+        .team-info {
+          font-size: 14px;
+        }
+
+        .team-name {
+          font-size: 18px;
+        }
+
+        .team-actions {
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .btn {
+          width: 100%;
+          max-width: 300px;
+          margin: 5px auto;
+        }
+
+        .spotify-section {
+          flex-direction: column;
+          text-align: center;
+        }
+
+        .spotify-button {
+          width: 100%;
+          max-width: 300px;
+        }
+
+        .create-team-btn {
+          width: 100%;
+          max-width: 300px;
+          margin: 10px auto;
+        }
+
+        .league-info {
+          font-size: 14px;
+          padding: 8px;
+        }
+
+        .team-stats {
+          font-size: 14px;
+        }
+      }
     </style>
   </head>
   <body>
@@ -166,7 +247,16 @@
       </div>
     </nav>
     <div class="container">
-      <ul id="teamList" class="team-list"></ul>
+      <div id="activeTeamsSection" style="display: none">
+        <h2 style="margin-bottom: 15px; color: #333">Active Teams</h2>
+        <ul id="activeTeamList" class="team-list"></ul>
+      </div>
+      <div id="completedTeamsSection" style="display: none">
+        <h2 style="margin-top: 30px; margin-bottom: 15px; color: #666">
+          Completed Seasons
+        </h2>
+        <ul id="completedTeamList" class="team-list"></ul>
+      </div>
       <div id="loadingMessage" class="loading-message">Loading teams...</div>
       <div id="noTeamsMessage" class="no-teams-message" style="display: none">
         No teams found.
@@ -190,7 +280,12 @@
         doc,
       } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
 
-      const teamList = document.getElementById("teamList");
+      const activeTeamList = document.getElementById("activeTeamList");
+      const completedTeamList = document.getElementById("completedTeamList");
+      const activeTeamsSection = document.getElementById("activeTeamsSection");
+      const completedTeamsSection = document.getElementById(
+        "completedTeamsSection"
+      );
       const loadingMessage = document.getElementById("loadingMessage");
       const noTeamsMessage = document.getElementById("noTeamsMessage");
       const signOutLink = document.getElementById("signOutLink");
@@ -236,38 +331,97 @@
 
           loadingMessage.style.display = "none";
 
-          querySnapshot.forEach(async (doc) => {
+          const teams = [];
+          for (const doc of querySnapshot.docs) {
             const teamData = doc.data();
-            const leagueName = await fetchLeagueName(teamData.leagueId);
-            addTeamToPage(
-              teamData.teamname,
-              leagueName,
-              doc.id,
-              teamData.leagueId
-            );
-          });
+            const leagueData = await fetchLeagueData(teamData.leagueId);
+            teams.push({
+              teamName: teamData.teamname,
+              leagueName: leagueData.leagueName,
+              teamId: doc.id,
+              leagueId: teamData.leagueId,
+              isCompleted: isLeagueCompleted(leagueData),
+            });
+          }
+
+          // Separate teams into active and completed
+          const activeTeams = teams.filter((t) => !t.isCompleted);
+          const completedTeams = teams.filter((t) => t.isCompleted);
+
+          // Display active teams
+          if (activeTeams.length > 0) {
+            activeTeamsSection.style.display = "block";
+            activeTeams.forEach((team) => {
+              addTeamToPage(
+                team.teamName,
+                team.leagueName,
+                team.teamId,
+                team.leagueId,
+                team.isCompleted,
+                activeTeamList
+              );
+            });
+          }
+
+          // Display completed teams
+          if (completedTeams.length > 0) {
+            completedTeamsSection.style.display = "block";
+            completedTeams.forEach((team) => {
+              addTeamToPage(
+                team.teamName,
+                team.leagueName,
+                team.teamId,
+                team.leagueId,
+                team.isCompleted,
+                completedTeamList
+              );
+            });
+          }
+
+          // Show no teams message if both sections are empty
+          if (activeTeams.length === 0 && completedTeams.length === 0) {
+            noTeamsMessage.style.display = "block";
+          }
         } catch (error) {
           console.error("Error fetching teams:", error);
           loadingMessage.textContent = "Error fetching teams.";
         }
       }
 
-      async function fetchLeagueName(leagueId) {
+      async function fetchLeagueData(leagueId) {
         try {
           const leagueDoc = await getDoc(doc(db, "leagues", leagueId));
           if (leagueDoc.exists()) {
-            return leagueDoc.data().leagueName;
+            return leagueDoc.data();
           } else {
             console.warn("League not found for ID:", leagueId);
-            return "Unknown League";
+            return { leagueName: "Unknown League", endDate: null };
           }
         } catch (error) {
-          console.error("Error fetching league name:", error);
-          return "Error fetching league";
+          console.error("Error fetching league data:", error);
+          return { leagueName: "Error fetching league", endDate: null };
         }
       }
 
-      function addTeamToPage(teamName, leagueName, teamId, leagueId) {
+      function isLeagueCompleted(leagueData) {
+        if (!leagueData.endDate) {
+          return false; // If no end date, assume active
+        }
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); // Reset time to start of day
+        const endDate = new Date(leagueData.endDate);
+        endDate.setHours(0, 0, 0, 0);
+        return endDate < today;
+      }
+
+      function addTeamToPage(
+        teamName,
+        leagueName,
+        teamId,
+        leagueId,
+        isCompleted,
+        targetList
+      ) {
         const listItem = document.createElement("li");
         listItem.classList.add("team-item");
 
@@ -277,12 +431,14 @@
 
         const viewButton = document.createElement("button");
         viewButton.classList.add("view-team-btn");
-        viewButton.textContent = "View Team";
+        viewButton.textContent = isCompleted
+          ? "View Season Results"
+          : "View Team";
         viewButton.addEventListener("click", () => viewTeam(teamId, leagueId));
 
         listItem.appendChild(teamNameElem);
         listItem.appendChild(viewButton);
-        teamList.appendChild(listItem);
+        targetList.appendChild(listItem);
       }
 
       function viewTeam(teamId, leagueId) {

@@ -29,3 +29,11 @@ league_playlist.py
 scripts/
 
 outputs/
+
+check_top_artists.py
+
+copy_data.py
+
+delete_inactive_artists.py
+
+top_artists_growth.py

@@ -2,6 +2,7 @@
 <html>
   <head>
     <title>View Team Roster</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <link rel="icon" type="image/png" href="/images/playandrlogo.png" />
     <style>
       body {
@@ -70,6 +71,85 @@
         border-radius: 4px;
         cursor: pointer;
         margin-top: 20px;
+      }
+      .error-message {
+        color: #f44336;
+        margin-top: 10px;
+        text-align: center;
+      }
+
+      /* Mobile-specific styles */
+      @media screen and (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 15px;
+          margin: 10px auto;
+        }
+
+        .nav-tabs {
+          justify-content: center;
+        }
+
+        .nav-tabs li {
+          margin: 5px;
+        }
+
+        .nav-tabs li a {
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+
+        .roster-slot {
+          width: calc(50% - 20px);
+          margin: 5px;
+        }
+
+        .artist-image {
+          width: 80px;
+          height: 80px;
+        }
+
+        .artist-name {
+          font-size: 14px;
+        }
+
+        .artist-slot {
+          font-size: 12px;
+        }
+
+        .artist-listeners {
+          font-size: 12px;
+        }
+
+        .header {
+          font-size: 20px;
+          padding: 8px;
+        }
+
+        .team-info {
+          font-size: 14px;
+        }
+
+        .league-info {
+          font-size: 14px;
+          padding: 8px;
+        }
+
+        table {
+          font-size: 14px;
+        }
+
+        th,
+        td {
+          padding: 8px;
+        }
+
+        .btn {
+          width: 100%;
+          max-width: 300px;
+          margin: 10px auto;
+          font-size: 14px;
+        }
       }
     </style>
   </head>

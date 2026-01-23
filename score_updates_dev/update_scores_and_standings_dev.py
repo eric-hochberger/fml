@@ -4,7 +4,7 @@ import requests
 from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
-from datetime import datetime
+from datetime import datetime, timedelta
 import re
 import time
 import logging
@@ -24,31 +24,116 @@ if not firebase_admin._apps:
 
 db = firestore.client()
 
+def extract_artist_id(artist_identifier):
+    # Check if it's a full Spotify URL
+    if artist_identifier.startswith('https://open.spotify.com/artist/'):
+        # Extract the ID from the URL
+        match = re.search(r'artist/([a-zA-Z0-9]+)', artist_identifier)
+        return match.group(1) if match else artist_identifier
+    return artist_identifier
+
 def get_monthly_listeners(artist_code, retries=3):
+    # Clean the artist code first
+    artist_code = extract_artist_id(artist_code)
     artist_url = f"https://open.spotify.com/artist/{artist_code}"
     
+    headers = {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+    }
+    
     for attempt in range(retries):
-        response = requests.get(artist_url)
-        web = BeautifulSoup(response.content, 'html.parser')
-        div_content = [div.get_text() for div in web.find_all('div')]
-        h1_content = [h1.get_text() for h1 in web.find_all('h1')]
-        artist_name = h1_content[0] if h1_content else None
+        try:
+            response = requests.get(artist_url, headers=headers)
+            web = BeautifulSoup(response.content, 'html.parser')
+            
+            # Method 1: Try meta description first
+            meta_description = web.find('meta', {'name': 'description'})
+            if meta_description:
+                description = meta_description.get('content', '')
+                match = re.search(r'(\d+(?:\.\d+)?(?:,\d+)?[KMB]?) monthly listeners', description)
+                if match:
+                    listeners_str = match.group(1)
+                    # Convert K/M/B to actual numbers
+                    multiplier = {
+                        'K': 1000,
+                        'M': 1000000,
+                        'B': 1000000000
+                    }
+                    
+                    # Remove commas and get the numeric part
+                    base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
+                    
+                    # Apply multiplier if K/M/B is present
+                    if listeners_str[-1] in multiplier:
+                        monthly_streams = int(base_num * multiplier[listeners_str[-1]])
+                    else:
+                        monthly_streams = int(base_num)
+                    
+                    # Get artist name
+                    meta_title = web.find('meta', {'property': 'og:title'})
+                    artist_name = meta_title.get('content', '').split('|')[0].strip() if meta_title else None
+                    
+                    if monthly_streams > 0:
+                        return artist_name, monthly_streams
 
-        monthly_streams = div_content[9] if len(div_content) > 9 else None
-        if monthly_streams:
-            try:
-                monthly_streams = int(monthly_streams.split(" ")[0].replace(",", ""))
-            except ValueError:
-                monthly_streams = 0
+            # Method 2: Try finding all divs and look for listener count pattern
+            div_content = [div.get_text() for div in web.find_all('div')]
+            h1_content = [h1.get_text() for h1 in web.find_all('h1')]
+            artist_name = h1_content[0] if h1_content else None
 
-        if monthly_streams != 0:
-            return artist_name, monthly_streams
-        else:
-            logging.info(f"Attempt {attempt + 1}: Monthly listeners for artist {artist_name or artist_code} returned as 0. Retrying...")
+            # Look for monthly listeners in div content
+            for text in div_content:
+                # Pattern 1: Direct number with "monthly listeners"
+                match = re.search(r'(\d+(?:,\d+)*) monthly listeners', text)
+                if match:
+                    try:
+                        monthly_streams = int(match.group(1).replace(',', ''))
+                        if monthly_streams > 0:
+                            return artist_name, monthly_streams
+                    except ValueError:
+                        continue
+
+                # Pattern 2: Number with K/M/B suffix
+                match = re.search(r'(\d+(?:\.\d+)?[KMB]) monthly listeners', text)
+                if match:
+                    try:
+                        num_str = match.group(1)
+                        multiplier = {'K': 1000, 'M': 1000000, 'B': 1000000000}
+                        base = float(num_str[:-1])
+                        suffix = num_str[-1]
+                        monthly_streams = int(base * multiplier[suffix])
+                        if monthly_streams > 0:
+                            return artist_name, monthly_streams
+                    except (ValueError, KeyError):
+                        continue
+
+            # Method 3: Look for structured data in script tags
+            for script in web.find_all('script', type='application/ld+json'):
+                try:
+                    data = json.loads(script.string)
+                    if isinstance(data, dict) and 'description' in data:
+                        match = re.search(r'(\d+(?:,\d+)?[KMB]?) monthly listeners', data['description'])
+                        if match:
+                            listeners_str = match.group(1)
+                            base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
+                            if listeners_str[-1] in multiplier:
+                                monthly_streams = int(base_num * multiplier[listeners_str[-1]])
+                            else:
+                                monthly_streams = int(base_num)
+                            if monthly_streams > 0:
+                                return artist_name, monthly_streams
+                except (json.JSONDecodeError, AttributeError):
+                    continue
+
+            logging.info(f"Attempt {attempt + 1}: Could not find monthly listeners for {artist_code}")
             time.sleep(2)  # Wait before retrying
-
-    logging.error(f"Failed to get valid monthly listeners for artist {artist_name or artist_code} after {retries} attempts.")
-    return artist_name, monthly_streams
+            
+        except Exception as e:
+            logging.error(f"Error getting monthly listeners for {artist_code}: {str(e)}")
+            time.sleep(2)  # Wait before retrying
+    
+    logging.error(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
+    return None, None
 
 def update_weeks_retained(df):
     # Calculate weeks retained for each artist individually
@@ -67,12 +152,58 @@ def update_weeks_retained(df):
             
     return df
 
-def calculate_percentage_difference_with_loyalty(df):
+def calculate_percentage_difference_with_loyalty(df, team_data):
     df = update_weeks_retained(df)
     
     # Initialize a list to store each artist's adjusted percentage difference
     adjusted_diffs = []
     
+    # Get all artists that have been both active and in top 5 at the same time
+    artists_active_in_top_5 = set()
+    print(f"\nDEBUG: Checking Spotify history for team {team_data.get('teamname', 'Unknown')}")
+    print(f"DEBUG: Team data keys: {team_data.keys()}")
+    
+    if 'spotifyTopArtistHistory' in team_data:
+        print(f"DEBUG: Found Spotify history with {len(team_data['spotifyTopArtistHistory'])} dates")
+        # For each date in Spotify history
+        for spotify_date, top_artists in team_data['spotifyTopArtistHistory'].items():
+            print(f"\nDEBUG: Checking date {spotify_date}")
+            print(f"DEBUG: Top artists: {[{'id': artist['id'], 'name': artist['name']} for artist in top_artists[:5]]}")
+            top_5_ids = {artist['id'] for artist in top_artists[:5]}
+            
+            # Check if any of these artists were active on that date
+            for artist_code in top_5_ids:
+                if artist_code in team_data['artists']:
+                    artist_info = team_data['artists'][artist_code]
+                    print(f"\nDEBUG: Artist {artist_code} found in team")
+                    print(f"DEBUG: Artist name: {artist_info.get('name', 'Unknown')}")
+                    print(f"DEBUG: Artist active_flg: {artist_info.get('active_flg', 0)}")
+                    date_pattern = r'\d{4}-\d{2}-\d{2}'
+                    listener_dates = [k for k in artist_info.keys() if re.match(date_pattern, k)]
+                    print(f"DEBUG: Artist dates with listener data: {listener_dates}")
+                    
+                    # Check if artist was active on this date
+                    if artist_info.get('active_flg', 0) == 1:
+                        # Check if we have listener data for this date
+                        if spotify_date in artist_info:
+                            artists_active_in_top_5.add(artist_code)
+                            print(f"DEBUG: Found artist {artist_code} that was both active and in top 5 on {spotify_date}")
+                            print(f"DEBUG: Listener count on {spotify_date}: {artist_info[spotify_date]}")
+                        else:
+                            print(f"DEBUG: No listener data for {spotify_date}")
+                    else:
+                        print(f"DEBUG: Artist not active")
+                else:
+                    print(f"DEBUG: Artist {artist_code} not found in team roster")
+    else:
+        print("DEBUG: No Spotify history found in team data")
+    
+    if artists_active_in_top_5:
+        print(f"\nDEBUG: Artists that were both active and in top 5: {artists_active_in_top_5}")
+    else:
+        print("\nDEBUG: No artists found that were both active and in top 5")
+    
+    print("\nDEBUG: Calculating scores for each artist:")
     for artist_code in df['artist_code'].unique():
         artist_df = df[df['artist_code'] == artist_code]
         
@@ -81,8 +212,8 @@ def calculate_percentage_difference_with_loyalty(df):
         relevant_dates = listener_dates[artist_df[listener_dates].notnull().any()]
         
         if not relevant_dates.empty:
-            min_date = relevant_dates.min()  # Earliest date with data
-            max_date = relevant_dates.max()  # Latest date with data
+            min_date = relevant_dates.min()
+            max_date = relevant_dates.max()
             
             min_listeners = artist_df[min_date].values[0]
             max_listeners = artist_df[max_date].values[0]
@@ -96,22 +227,44 @@ def calculate_percentage_difference_with_loyalty(df):
             weeks_retained = artist_df['weeks_retained'].values[0] if 'weeks_retained' in artist_df else 0
             loyalty_multiplier = 1 + 0.05 * weeks_retained
             
+            print(f"\nDEBUG: Artist {artist_code}:")
+            print(f"DEBUG: Min listeners: {min_listeners}")
+            print(f"DEBUG: Max listeners: {max_listeners}")
+            print(f"DEBUG: Percentage diff: {percentage_diff:.2f}%")
+            print(f"DEBUG: Weeks retained: {weeks_retained}")
+            print(f"DEBUG: Loyalty multiplier: {loyalty_multiplier:.2f}")
+            
             if percentage_diff > 0:
                 adjusted_diff = percentage_diff * loyalty_multiplier
+                # Apply 40% bonus if artist was both active and in top 5 at any point
+                if artist_code in artists_active_in_top_5:
+                    print(f"DEBUG: Applying 40% bonus to {artist_code}")
+                    adjusted_diff *= 1.4
+                    print(f"DEBUG: Score after 40% bonus: {adjusted_diff:.2f}%")
             else:
                 adjusted_diff = percentage_diff
+                print(f"DEBUG: No bonus applied (negative or zero percentage diff)")
             
+            print(f"DEBUG: Final adjusted diff: {adjusted_diff:.2f}%")
             adjusted_diffs.append(adjusted_diff)
     
     # Return the mean of all adjusted percentage differences
-    return np.nanmean(adjusted_diffs)
+    final_score = np.nanmean(adjusted_diffs) if adjusted_diffs else 0
+    print(f"\nDEBUG: Final team score: {final_score:.2f}%")
+    return final_score
 
 def update_firestore():
+    print("Running updates in TEST environment")
+    if db.project != 'fantasy-musicpleague-test':
+        raise Exception("WARNING: This script should only run in the test environment!")
+
     teams_ref = db.collection('teams')
     standings_ref = db.collection('standings')
     docs = teams_ref.stream()
 
     current_date = datetime.now().strftime('%Y-%m-%d')
+    # Calculate tomorrow's date
+    tomorrow = (datetime.now() + timedelta(days=1)).strftime('%Y-%m-%d')
     
     # Dictionary to hold league data
     leagues = {}
@@ -120,7 +273,7 @@ def update_firestore():
         team_data = doc.to_dict()
         team_league_id = team_data.get('leagueId')
         if not team_league_id:
-            continue  # Skip teams without a leagueId
+            continue
 
         # Fetch league data
         league_doc = db.collection('leagues').document(team_league_id).get()
@@ -137,55 +290,91 @@ def update_firestore():
             print(f"Skipping league {team_league_id} due to missing start or end date.")
             continue
 
-        # Check if current date is within the league's active period
-        if not (start_date <= current_date <= end_date):
-            print(f"Current date {current_date} is not within the league period {start_date} to {end_date}.")
+        # Check if current date is within the league's active period OR league starts tomorrow
+        # This allows us to process leagues that start tomorrow for testing
+        is_active = start_date <= current_date <= end_date
+        starts_tomorrow = start_date == tomorrow
+        
+        if not (is_active or starts_tomorrow):
+            print(f"Current date {current_date} is not within the league period {start_date} to {end_date}, and league doesn't start tomorrow.")
             continue
 
         print(f"Updating team: {team_data['teamname']} in league {team_league_id}")
 
-        # Initialize league in leagues dict if not present
         if team_league_id not in leagues:
             leagues[team_league_id] = {}
 
         artists_data = []
         for artist_code, artist_info in team_data['artists'].items():
-            if artist_info.get('active_flg', 0) == 1:  # Only update active artists
+            # Only update monthly listeners for active artists
+            if artist_info.get('active_flg', 0) == 1:
                 artist_name, monthly_streams = get_monthly_listeners(artist_code)
-                team_data['artists'][artist_code][current_date] = monthly_streams
-                print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
-
-                artist_df = pd.DataFrame([team_data['artists'][artist_code]])
-                artist_df['artist_code'] = artist_code
-                artists_data.append(artist_df)
+                if monthly_streams is not None:
+                    team_data['artists'][artist_code][current_date] = monthly_streams
+                    print(f"Updated {artist_name} ({artist_code}) with {monthly_streams} listeners.")
+                else:
+                    print(f"Could not get monthly listeners for {artist_code}")
+            
+            # Always add artist data to DataFrame for scoring, regardless of active_flg
+            artist_df = pd.DataFrame({
+                'artist_code': [artist_code],
+                **{k: [v] for k, v in team_data['artists'][artist_code].items() if isinstance(v, (int, float))}
+            })
+            artists_data.append(artist_df)
         
         if artists_data:
-            df = pd.concat(artists_data)
+            all_columns = set().union(*(df.columns for df in artists_data))
+            artists_data = [df.reindex(columns=list(all_columns)) for df in artists_data]
+            df = pd.concat(artists_data, ignore_index=True)
             df = update_weeks_retained(df)
-            leagues[team_league_id][team_data['teamname']] = df
+            leagues[team_league_id][team_data['teamname']] = (df, team_data)  # Store both df and team_data
         
         # Update team data in Firestore
         teams_ref.document(doc.id).set(team_data)
     
-    # Now calculate standings per league
+    # Calculate standings per league with historical tracking
     for league_id, league_teams in leagues.items():
         standings = []
-        for teamname, df in league_teams.items():
-            score = calculate_percentage_difference_with_loyalty(df)
+        for teamname, (df, team_data) in league_teams.items():
+            score = calculate_percentage_difference_with_loyalty(df, team_data)
             standings.append({'teamname': teamname, 'score': score})
 
         standings_df = pd.DataFrame(standings)
         standings_df = standings_df.sort_values(by='score', ascending=False).reset_index(drop=True)
 
-        # Update standings in Firestore under the leagueId
+        # Get existing standings doc or create new one
         standings_doc_ref = standings_ref.document(league_id)
-        standings_data = {
-            'leagueId': league_id,
-            'standings': standings_df.to_dict(orient='records'),
-            'lastUpdated': current_date
-        }
+        standings_doc = standings_doc_ref.get()
+        
+        if standings_doc.exists:
+            standings_data = standings_doc.to_dict()
+            # Initialize history if it doesn't exist
+            if 'history' not in standings_data:
+                standings_data['history'] = {}
+        else:
+            standings_data = {
+                'leagueId': league_id,
+                'history': {}
+            }
+        
+        # Update the standings history with today's standings
+        standings_data['history'][current_date] = standings_df.to_dict(orient='records')
+        
+        # Keep current standings at top level for backward compatibility
+        standings_data['standings'] = standings_df.to_dict(orient='records')
+        standings_data['lastUpdated'] = current_date
+        
+        # Store the updated standings
         standings_doc_ref.set(standings_data)
-        print(f"Updated standings for league {league_id}")
+        print(f"Updated standings and history for league {league_id}")
+
+        # Print some debug info about the updates
+        print(f"\nDebug info for league {league_id}:")
+        print(f"Number of teams: {len(standings)}")
+        print("Top 3 teams:")
+        for i, team in enumerate(standings[:3]):
+            print(f"{i+1}. {team['teamname']}: {team['score']:.2f}")
+        print(f"Historical data points: {len(standings_data['history'])}")
 
     print("Firestore update complete with standings per league")
 

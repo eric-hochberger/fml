@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Artist Evolution - FML</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="icon" type="image/png" href="/images/playandrlogo.png" />
+    <link
+      rel="stylesheet"
+      href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+    />
+    <style>
+      /* Reset default margins and paddings */
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      /* Styles */
+      body {
+        font-family: Arial, sans-serif;
+        background-color: #f5f5f5;
+      }
+      .navbar {
+        width: 100%;
+        background-color: #333;
+        overflow: hidden;
+        display: flex;
+        align-items: center;
+        padding: 10px;
+        position: relative;
+      }
+      .site-logo {
+        width: 40px;
+        height: auto;
+        position: absolute;
+        left: 10px;
+      }
+      .nav-container {
+        flex-grow: 1;
+        display: flex;
+        justify-content: center;
+      }
+      .nav-tabs {
+        list-style-type: none;
+        display: flex;
+        flex-wrap: wrap;
+        margin: 0;
+        padding: 0;
+      }
+      .nav-tabs li {
+        margin-right: 15px;
+      }
+      .nav-tabs li a {
+        display: block;
+        color: white;
+        text-align: center;
+        padding: 14px 16px;
+        text-decoration: none;
+      }
+      .nav-tabs li a:hover {
+        background-color: #ddd;
+        color: black;
+      }
+      .nav-tabs li a.active {
+        background-color: #f44336;
+        color: white;
+      }
+      .container {
+        background-color: white;
+        padding: 20px;
+        border-radius: 8px;
+        box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        width: 90%;
+        max-width: 800px;
+        text-align: center;
+        margin: 20px auto;
+      }
+      .header {
+        background-color: #f44336;
+        color: white;
+        padding: 10px;
+        border-radius: 8px 8px 0 0;
+        margin-bottom: 20px;
+      }
+      .chart-container {
+        position: relative;
+        height: 800px;
+        width: 100%;
+        margin: 20px 0;
+      }
+      .chart-wrapper {
+        display: flex;
+        align-items: flex-start;
+        gap: 20px;
+        height: 800px;
+      }
+      .chart-area {
+        flex: 1;
+        min-width: 0;
+        height: 100%;
+      }
+      .legend-area {
+        width: 200px;
+        padding-top: 20px;
+        height: 100%;
+        overflow-y: auto;
+      }
+      .legend-item {
+        display: flex;
+        align-items: center;
+        margin-bottom: 15px;
+      }
+      .legend-image {
+        width: 30px;
+        height: 30px;
+        border-radius: 50%;
+        margin-right: 10px;
+        object-fit: cover;
+      }
+      .legend-label {
+        font-size: 12px;
+        color: #333;
+      }
+      .loading-spinner {
+        display: none;
+        text-align: center;
+        margin: 20px 0;
+      }
+      .alert {
+        padding: 15px;
+        margin-bottom: 20px;
+        border: 1px solid transparent;
+        border-radius: 4px;
+        text-align: center;
+        background-color: #f44336;
+        color: white;
+        font-size: 16px;
+        cursor: pointer;
+        transition: background-color 0.3s;
+      }
+      .alert:hover {
+        background-color: #d32f2f;
+      }
+      /* Mobile-specific styles */
+      @media screen and (max-width: 768px) {
+        .container {
+          width: 95%;
+          padding: 15px;
+          margin: 10px auto;
+        }
+        .nav-tabs {
+          justify-content: center;
+        }
+        .nav-tabs li {
+          margin: 5px;
+        }
+        .nav-tabs li a {
+          padding: 10px 12px;
+          font-size: 14px;
+        }
+        .chart-container {
+          height: 800px;
+          margin: 10px 0;
+        }
+        .chart-wrapper {
+          flex-direction: column;
+          height: auto;
+          gap: 15px;
+        }
+        .chart-area {
+          width: 100%;
+          height: 700px;
+        }
+        .legend-area {
+          width: 100%;
+          height: auto;
+          max-height: 100px;
+          padding-top: 10px;
+          display: flex;
+          flex-wrap: wrap;
+          gap: 10px;
+          justify-content: center;
+        }
+        .legend-item {
+          flex: 0 0 calc(50% - 10px);
+          margin-bottom: 5px;
+        }
+        .legend-image {
+          width: 25px;
+          height: 25px;
+        }
+        .legend-label {
+          font-size: 11px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <nav class="navbar">
+      <img src="/images/playandrlogo.png" alt="Site Logo" class="site-logo" />
+      <div class="nav-container">
+        <ul class="nav-tabs">
+          <li><a href="my_teams.html">My Teams</a></li>
+          <li><a href="league_selection.html">Create/Join League</a></li>
+          <li>
+            <a href="artist_evolution.html" class="active">Artist Evolution</a>
+          </li>
+          <li><a href="faq.html">How To Play</a></li>
+          <li><a href="privacy_policy.html">Privacy Policy</a></li>
+          <li><a href="#" id="signOutLink">Sign Out</a></li>
+        </ul>
+      </div>
+    </nav>
+
+    <div class="container">
+      <div class="header">
+        <h1>Your Top Artists Evolution</h1>
+      </div>
+
+      <div
+        class="alert"
+        id="spotify-connect-alert"
+        style="display: none"
+        onclick="window.location.href='roster.html'"
+      >
+        Connect your Spotify account to see your artist evolution!
+      </div>
+
+      <div class="loading-spinner" id="loading-spinner">
+        <div class="spinner-border text-primary" role="status">
+          <span class="visually-hidden">Loading...</span>
+        </div>
+      </div>
+
+      <div class="chart-wrapper">
+        <div class="chart-area">
+          <canvas id="artistEvolutionChart"></canvas>
+        </div>
+        <div class="legend-area" id="legendContainer"></div>
+      </div>
+    </div>
+
+    <script src="firebaseConfig.js?v=1.2" type="module"></script>
+    <script type="module">
+      import { auth, db } from "./firebaseConfig.js?v=1.2";
+      import {
+        onAuthStateChanged,
+        signOut,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-auth.js";
+      import {
+        getDoc,
+        doc,
+        collection,
+        query,
+        where,
+        getDocs,
+      } from "https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore.js";
+      import {
+        Chart,
+        registerables,
+      } from "https://cdn.jsdelivr.net/npm/chart.js@4.4.1/+esm";
+
+      // Register Chart.js components
+      Chart.register(...registerables);
+
+      const signOutLink = document.getElementById("signOutLink");
+      signOutLink.addEventListener("click", (e) => {
+        e.preventDefault();
+        signOut(auth)
+          .then(() => {
+            window.location.href = "index.html";
+          })
+          .catch((error) => {
+            console.error("Error signing out:", error);
+          });
+      });
+
+      let chart = null;
+
+      // Custom point drawing function
+      Chart.register({
+        id: "artistImage",
+        beforeDraw: function (chart) {
+          const ctx = chart.ctx;
+          const datasets = chart.data.datasets;
+
+          datasets.forEach((dataset, datasetIndex) => {
+            const meta = chart.getDatasetMeta(datasetIndex);
+            if (!meta.hidden) {
+              meta.data.forEach((point, index) => {
+                if (dataset.data[index] !== null) {
+                  const image = new Image();
+                  image.src = dataset.artistImage;
+
+                  // Draw image at point position
+                  const x = point.x;
+                  const y = point.y;
+                  const size = 30; // Size of the image
+
+                  ctx.save();
+                  ctx.beginPath();
+                  ctx.arc(x, y, size / 2, 0, Math.PI * 2);
+                  ctx.closePath();
+                  ctx.clip();
+
+                  ctx.drawImage(image, x - size / 2, y - size / 2, size, size);
+                  ctx.restore();
+                }
+              });
+            }
+          });
+        },
+      });
+
+      async function loadArtistEvolution() {
+        const loadingSpinner = document.getElementById("loading-spinner");
+        const spotifyAlert = document.getElementById("spotify-connect-alert");
+
+        try {
+          loadingSpinner.style.display = "block";
+
+          const user = auth.currentUser;
+          if (!user) {
+            window.location.href = "/index.html";
+            return;
+          }
+
+          // Get team ID from localStorage
+          const teamId = localStorage.getItem("selectedTeamId");
+
+          if (!teamId) {
+            console.error("No team ID found in localStorage");
+            spotifyAlert.style.display = "block";
+            loadingSpinner.style.display = "none";
+            return;
+          }
+
+          console.log("Found team ID in localStorage:", teamId);
+
+          // Get team by ID
+          const teamDoc = await getDoc(doc(db, "teams", teamId));
+
+          if (!teamDoc.exists()) {
+            console.error("Team not found");
+            spotifyAlert.style.display = "block";
+            loadingSpinner.style.display = "none";
+            return;
+          }
+
+          const teamData = teamDoc.data();
+          console.log("Full team data:", JSON.stringify(teamData, null, 2));
+
+          // Get the spotifyTopArtistHistory field
+          const artistHistory = teamData.spotifyTopArtistHistory || {};
+          console.log("Artist history keys:", Object.keys(artistHistory));
+          console.log(
+            "First date data:",
+            artistHistory[Object.keys(artistHistory)[0]]
+          );
+
+          // Process data for chart
+          const dates = Object.keys(artistHistory).sort();
+          console.log("Sorted dates:", dates);
+
+          if (dates.length === 0) {
+            console.log("No dates found in artist history");
+            spotifyAlert.style.display = "block";
+            loadingSpinner.style.display = "none";
+            return;
+          }
+
+          const datasets = [];
+          const artistColors = {};
+
+          // Generate colors for each artist
+          const colors = [
+            "#FF6384",
+            "#36A2EB",
+            "#FFCE56",
+            "#4BC0C0",
+            "#9966FF",
+            "#FF9F40",
+            "#8AC249",
+            "#EA526F",
+            "#23B5D3",
+            "#279AF1",
+          ];
+
+          // First pass: collect all unique artists and their data
+          const artistData = new Map();
+
+          dates.forEach((date) => {
+            const artists = artistHistory[date];
+            console.log(`Processing date ${date}:`, artists);
+
+            if (!Array.isArray(artists)) {
+              console.error(`Invalid data for date ${date}:`, artists);
+              return;
+            }
+
+            artists.forEach((artist) => {
+              if (artist.rank <= 20) {
+                if (!artistData.has(artist.id)) {
+                  artistData.set(artist.id, {
+                    name: artist.name,
+                    image: artist.image,
+                    ranks: new Array(dates.length).fill(null),
+                  });
+                }
+                const dateIndex = dates.indexOf(date);
+                artistData.get(artist.id).ranks[dateIndex] = artist.rank;
+              }
+            });
+          });
+
+          console.log("Artist data map:", Array.from(artistData.entries()));
+
+          // Convert artist data to datasets
+          artistData.forEach((data, artistId) => {
+            const colorIndex = datasets.length % colors.length;
+            datasets.push({
+              label: data.name,
+              data: data.ranks,
+              borderColor: colors[colorIndex],
+              backgroundColor: colors[colorIndex],
+              artistId: artistId,
+              artistImage: data.image,
+              pointRadius: 0,
+              pointHoverRadius: 0,
+              tension: 0.4,
+            });
+          });
+
+          console.log("Processed datasets:", datasets);
+
+          // Create chart
+          const ctx = document
+            .getElementById("artistEvolutionChart")
+            .getContext("2d");
+          if (chart) {
+            chart.destroy();
+          }
+
+          chart = new Chart(ctx, {
+            type: "line",
+            data: {
+              labels: dates.map((date) => new Date(date).toLocaleDateString()),
+              datasets: datasets,
+            },
+            options: {
+              responsive: true,
+              maintainAspectRatio: false,
+              layout: {
+                padding: {
+                  top: 20,
+                  right: 20,
+                  bottom: 40,
+                  left: 20,
+                },
+              },
+              scales: {
+                y: {
+                  reverse: true,
+                  min: 1,
+                  max: 20,
+                  ticks: {
+                    stepSize: 1,
+                    padding: 10,
+                    font: {
+                      size: window.innerWidth <= 768 ? 12 : 14,
+                    },
+                  },
+                  title: {
+                    display: true,
+                    text: "Rank",
+                    padding: { top: 10, bottom: 10 },
+                    font: {
+                      size: window.innerWidth <= 768 ? 14 : 16,
+                    },
+                  },
+                  grid: {
+                    drawBorder: true,
+                    drawTicks: true,
+                  },
+                },
+                x: {
+                  ticks: {
+                    maxRotation: 45,
+                    minRotation: 45,
+                    padding: 10,
+                    font: {
+                      size: window.innerWidth <= 768 ? 10 : 12,
+                    },
+                  },
+                  title: {
+                    display: true,
+                    text: "Date",
+                    padding: { top: 10, bottom: 10 },
+                    font: {
+                      size: window.innerWidth <= 768 ? 14 : 16,
+                    },
+                  },
+                  grid: {
+                    drawBorder: true,
+                    drawTicks: true,
+                  },
+                },
+              },
+              plugins: {
+                tooltip: {
+                  callbacks: {
+                    label: function (context) {
+                      const dataset = context.dataset;
+                      return `${dataset.label} (Rank ${context.raw})`;
+                    },
+                  },
+                },
+                legend: {
+                  display: false,
+                },
+              },
+            },
+          });
+
+          // Create custom legend
+          const legendContainer = document.getElementById("legendContainer");
+          datasets.forEach((dataset, index) => {
+            const legendItem = document.createElement("div");
+            legendItem.className = "legend-item";
+
+            const image = document.createElement("img");
+            image.className = "legend-image";
+            image.src = dataset.artistImage;
+            image.alt = dataset.label;
+
+            const label = document.createElement("span");
+            label.className = "legend-label";
+            label.textContent = dataset.label;
+
+            legendItem.appendChild(image);
+            legendItem.appendChild(label);
+            legendContainer.appendChild(legendItem);
+          });
+        } catch (error) {
+          console.error("Error loading artist evolution:", error);
+        } finally {
+          loadingSpinner.style.display = "none";
+        }
+      }
+
+      // Load data when auth state changes
+      onAuthStateChanged(auth, (user) => {
+        if (user) {
+          loadArtistEvolution();
+        }
+      });
+    </script>
+  </body>
+</html>
