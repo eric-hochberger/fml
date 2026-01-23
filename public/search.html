@@ -137,30 +137,22 @@
         color: red;
         margin-top: 20px;
       }
-      .rules {
-        text-align: left;
-        margin-top: 20px;
-        background-color: #f9f9f9;
-        padding: 10px;
-        border-radius: 4px;
-        border: 1px solid #ccc;
-      }
-      .rules h2 {
-        margin-bottom: 15px;
+      .how-to-play-notice {
         text-align: center;
+        margin-top: 20px;
+        background-color: #e3f2fd;
+        padding: 15px;
+        border-radius: 4px;
+        border: 1px solid #90caf9;
+        color: #1565c0;
       }
-      .rules ul {
-        margin: 0;
-        padding-left: 20px;
-        list-style-type: disc;
+      .how-to-play-notice a {
+        color: #1565c0;
+        text-decoration: underline;
+        font-weight: bold;
       }
-      .rules li {
-        margin-bottom: 10px;
-        line-height: 1.5;
-      }
-      .rules ul ul {
-        margin-left: 20px;
-        list-style-type: circle;
+      .how-to-play-notice a:hover {
+        color: #0d47a1;
       }
       .back-to-top {
         position: fixed;
@@ -477,7 +469,7 @@
         <ul class="nav-tabs">
           <li><a href="my_teams.html">My Teams</a></li>
           <li><a href="league_selection.html">Create/Join League</a></li>
-          <li><a href="faq.html">FAQ</a></li>
+          <li><a href="faq.html">How to Play</a></li>
           <li><a href="privacy_policy.html">Privacy Policy</a></li>
           <li><a href="#" id="signOutLink">Sign Out</a></li>
         </ul>
@@ -488,9 +480,8 @@
         <h1>Build Your Artist Roster</h1>
         <h2 id="leagueHeader" class="league-header"></h2>
       </div>
-      <div class="rules">
-        <h2>Rules</h2>
-        <ul id="rulesList"></ul>
+      <div class="how-to-play-notice">
+        <p>For guidance on how to play, please check out <a href="faq.html">How to Play</a>.</p>
       </div>
       <input
         type="text"
@@ -848,42 +839,9 @@
         const leagueNameElem = document.getElementById("leagueHeader");
         leagueNameElem.textContent = `League: ${leagueData.leagueName}`;
 
-        updateRulesSection();
         setupRosterSlots();
       }
 
-      function updateRulesSection() {
-        const rulesList = document.getElementById("rulesList");
-        rulesList.innerHTML = "";
-
-        const rules = [
-          "Scoring is based on average percentage change in Spotify monthly listeners of your artists.",
-          "Each artist must have more than 500 Spotify monthly listeners.",
-          "Artists must fit into the appropriate slot based on their Spotify monthly listeners",
-          "Refer to monthly listener counts on the Spotify app.",
-          "Click on an artist to add them to your roster, artist selections fill automatically from left to right.",
-        ];
-
-        // Add main rules
-        rules.forEach((rule) => {
-          const li = document.createElement("li");
-          li.textContent = rule;
-          rulesList.appendChild(li);
-        });
-
-        // Add additional rules
-        const additionalRules = [
-          "No duplicate artists in the same team.",
-          "All slots must be filled before submitting the team.",
-          "A team name must be provided before submitting the team.",
-        ];
-
-        additionalRules.forEach((rule) => {
-          const li = document.createElement("li");
-          li.textContent = rule;
-          rulesList.appendChild(li);
-        });
-      }
 
       function setupRosterSlots() {
         const rosterContainer = document.getElementById("rosterSlots");
