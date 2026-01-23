@@ -12,12 +12,6 @@ import time
 import logging
 import os
 import json
-from selenium import webdriver
-from selenium.webdriver.chrome.options import Options
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.ui import WebDriverWait
-from selenium.webdriver.support import expected_conditions as EC
-from selenium.common.exceptions import TimeoutException, NoSuchElementException
 
 # Set up logging
 logging.basicConfig(filename='listener_errors.log', level=logging.INFO)
@@ -212,78 +206,6 @@ def get_monthly_listeners(artist_code, retries=3):
             time.sleep(2)
     
     print(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
-    return None, None
-
-def get_monthly_listeners_selenium(artist_code, retries=3):
-    """Get monthly listeners using Selenium to handle JavaScript"""
-    artist_code = extract_artist_id(artist_code)
-    artist_url = f"https://open.spotify.com/artist/{artist_code}"
-    
-    # Set up Chrome options for headless browsing
-    chrome_options = Options()
-    chrome_options.add_argument('--headless')
-    chrome_options.add_argument('--no-sandbox')
-    chrome_options.add_argument('--disable-dev-shm-usage')
-    chrome_options.add_argument('--disable-gpu')
-    chrome_options.add_argument('--window-size=1920,1080')
-    chrome_options.add_argument('--user-agent=Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36')
-    
-    for attempt in range(retries):
-        driver = None
-        try:
-            print(f"Selenium attempt {attempt + 1} for {artist_code}")
-            
-            # Initialize the driver
-            driver = webdriver.Chrome(options=chrome_options)
-            driver.get(artist_url)
-            
-            # Wait for the page to load and look for monthly listeners
-            wait = WebDriverWait(driver, 20)
-            
-            # Try to find monthly listeners text
-            try:
-                # Look for elements containing "monthly listeners"
-                elements = driver.find_elements(By.XPATH, "//*[contains(text(), 'monthly listeners')]")
-                
-                for element in elements:
-                    text = element.text
-                    print(f"Found text: {text}")
-                    
-                    # Extract the number from the text
-                    match = re.search(r'(\d+(?:,\d+)*)\s*monthly listeners', text)
-                    if match:
-                        monthly_streams = int(match.group(1).replace(',', ''))
-                        print(f"Found {monthly_streams} monthly listeners")
-                        
-                        # Get artist name from page title or other element
-                        artist_name = driver.title.split('|')[0].strip() if '|' in driver.title else None
-                        
-                        return artist_name, monthly_streams
-                
-                # If no direct match, try to find the number pattern
-                all_text = driver.find_element(By.TAG_NAME, "body").text
-                match = re.search(r'(\d+(?:,\d+)*)\s*monthly listeners', all_text)
-                if match:
-                    monthly_streams = int(match.group(1).replace(',', ''))
-                    artist_name = driver.title.split('|')[0].strip() if '|' in driver.title else None
-                    print(f"Found {monthly_streams} monthly listeners in body text")
-                    return artist_name, monthly_streams
-                    
-            except (TimeoutException, NoSuchElementException) as e:
-                print(f"Could not find monthly listeners element: {e}")
-            
-            print(f"Selenium attempt {attempt + 1} failed for {artist_code}")
-            
-        except Exception as e:
-            print(f"Selenium error for {artist_code}: {str(e)}")
-        finally:
-            if driver:
-                driver.quit()
-            
-            if attempt < retries - 1:
-                time.sleep(5)
-    
-    print(f"Failed to get monthly listeners for {artist_code} with Selenium after {retries} attempts")
     return None, None
 
 def update_weeks_retained(df):
