@@ -178,7 +178,7 @@ def update_firestore():
         try:
             # Use get() instead of stream() for better timeout control
             # Add timeout parameter to the get() call
-            docs = teams_ref.get(timeout=300)  # 5 minute timeout
+            docs = teams_ref.get()  # 5 minute timeout
             break
         except Exception as e:
             if attempt == max_retries - 1:
