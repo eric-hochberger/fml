@@ -1,7 +1,6 @@
 import firebase_admin
 from firebase_admin import credentials, firestore
 import requests
-from bs4 import BeautifulSoup
 import pandas as pd
 import numpy as np
 from datetime import datetime, timedelta
@@ -11,13 +10,22 @@ import logging
 import os
 import json
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+# Dev: path to service account JSON (for local testing). Prod uses env var only.
+DEV_CRED_PATH = "/Users/Eric.Hochberger/Downloads/fantasy-musicpleague-test-firebase-adminsdk-wbxlo-d976899cc1.json"
+
+# Saw-live sheet (share with service account client_email, enable Sheets API in project)
+SPREADSHEET_ID = "1TvNsjSmj1fj6PxK5DPP8Q6OHYJ1pb5YwGhGVWFhsrWA"
+SHEET_GID = 366933681
+
 # Set up logging
 logging.basicConfig(filename='listener_errors.log', level=logging.INFO)
 
 # Initialize Firebase Admin with credentials from the GitHub secret
 if not firebase_admin._apps:
-    # firebase_credentials = os.getenv('FIREBASE_TEST_SERVICE_ACCOUNT')
-    cred = credentials.Certificate('/Users/Eric.Hochberger/Downloads/fantasy-musicpleague-test-firebase-adminsdk-wbxlo-d976899cc1.json')
+    cred = credentials.Certificate(DEV_CRED_PATH)
     firebase_admin.initialize_app(cred, {
         'projectId': 'fantasy-musicpleague-test'  # Use your test project's ID
     })
@@ -32,107 +40,180 @@ def extract_artist_id(artist_identifier):
         return match.group(1) if match else artist_identifier
     return artist_identifier
 
+
+def _extract_artist_id_from_url(url):
+    """Parse Spotify artist ID from a URL string; returns None if not found."""
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    match = re.search(r"artist/([a-zA-Z0-9]+)", url)
+    return match.group(1) if match else None
+
+
+def _fetch_saw_live_sheet_rows(credentials_dict):
+    """Read saw-live sheet via Google Sheets API; return list of dicts (header -> cell value)."""
+    creds = service_account.Credentials.from_service_account_info(
+        credentials_dict,
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    )
+    service = build("sheets", "v4", credentials=creds)
+    meta = (
+        service.spreadsheets()
+        .get(spreadsheetId=SPREADSHEET_ID, fields="sheets(properties(sheetId,title))")
+        .execute()
+    )
+    sheet_title = None
+    for sheet in meta.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("sheetId") == SHEET_GID:
+            sheet_title = props.get("title", "Sheet1")
+            break
+    if not sheet_title:
+        raise RuntimeError(f"Sheet with gid={SHEET_GID} not found in spreadsheet")
+    range_str = f"'{sheet_title}'!A:Z"
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=SPREADSHEET_ID, range=range_str)
+        .execute()
+    )
+    rows = result.get("values", [])
+    if not rows:
+        return []
+    headers = [str(h).strip() for h in rows[0]]
+    out = []
+    for r in rows[1:]:
+        padded = list(r) + [""] * (len(headers) - len(r))
+        out.append(dict(zip(headers, padded)))
+    return out
+
+
+def _collect_email_artist_pairs(rows):
+    """From sheet rows, find (email, artist_id) pairs. Column detection by header keywords."""
+    if not rows:
+        return set()
+    keys = list(rows[0].keys()) if rows[0] else []
+    spotify_key = email_key = None
+    for k in keys:
+        k_lower = (k or "").lower()
+        if "spotify" in k_lower and "artist" in k_lower:
+            spotify_key = k
+        if "email" in k_lower and "address" in k_lower:
+            email_key = k
+    if not spotify_key or not email_key:
+        spotify_key = keys[2] if len(keys) > 2 else None
+        email_key = keys[-1] if keys else None
+    pairs = set()
+    for row in rows:
+        link = row.get(spotify_key, "").strip() if spotify_key else ""
+        email = row.get(email_key, "").strip().lower() if email_key else ""
+        aid = _extract_artist_id_from_url(link)
+        if email and aid:
+            pairs.add((email, aid))
+    return pairs
+
+
+def _roster_artist_ids(artists_dict):
+    """Normalize team artist keys (URL or ID) to a set of artist IDs."""
+    ids = set()
+    for key in artists_dict:
+        aid = _extract_artist_id_from_url(key) if (key and str(key).startswith("http")) else key
+        if aid:
+            ids.add(aid)
+    return ids
+
+
+def refresh_saw_live_from_sheet(db, credentials_dict=None, credentials_path=None):
+    """Fetch saw-live sheet, compute (email, artist_id) pairs, update each team's sawLiveArtistIds.
+    Use credentials_dict (e.g. from env) or credentials_path (path to JSON key file for dev).
+    """
+    if credentials_dict is None and credentials_path:
+        with open(credentials_path, "r") as f:
+            credentials_dict = json.load(f)
+    if not credentials_dict:
+        print("Skipping saw-live sheet refresh (no credentials).")
+        return
+    print("Fetching sheet via Google Sheets API...")
+    rows = _fetch_saw_live_sheet_rows(credentials_dict)
+    if not rows:
+        print("No rows in sheet; skipping saw-live sync.")
+        return
+    pairs = _collect_email_artist_pairs(rows)
+    print(f"Found {len(pairs)} (email, artist_id) submissions")
+    teams_ref = db.collection("teams")
+    all_teams = list(teams_ref.stream())
+    updates = 0
+    for doc in all_teams:
+        team_data = doc.to_dict()
+        user_email = (team_data.get("userEmail") or "").strip().lower()
+        if not user_email:
+            continue
+        artists = team_data.get("artists") or {}
+        roster_ids = _roster_artist_ids(artists)
+        saw_live = [aid for (em, aid) in pairs if em == user_email and aid in roster_ids]
+        saw_live_dedup = list(dict.fromkeys(saw_live))
+        if saw_live_dedup != team_data.get("sawLiveArtistIds", []):
+            teams_ref.document(doc.id).update({"sawLiveArtistIds": saw_live_dedup})
+            print(f"Updated team {doc.id} ({team_data.get('teamname', '')}): sawLiveArtistIds = {saw_live_dedup}")
+            updates += 1
+    print(f"Saw-live sync done. Updated {updates} team(s).")
+
+
 def get_monthly_listeners(artist_code, retries=3):
     # Clean the artist code first
     artist_code = extract_artist_id(artist_code)
-    artist_url = f"https://open.spotify.com/artist/{artist_code}"
-    
-    headers = {
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
-    }
-    
+
+    # Use the Cloud Function instead of scraping directly to avoid bot detection
+    cloud_function_url = f"https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/getArtistMonthlyListeners?artistCode={artist_code}"
+
+    print(f"Attempting to get monthly listeners for {artist_code} via Cloud Function")
+
     for attempt in range(retries):
         try:
-            response = requests.get(artist_url, headers=headers)
-            web = BeautifulSoup(response.content, 'html.parser')
-            
-            # Method 1: Try meta description first
-            meta_description = web.find('meta', {'name': 'description'})
-            if meta_description:
-                description = meta_description.get('content', '')
-                match = re.search(r'(\d+(?:\.\d+)?(?:,\d+)?[KMB]?) monthly listeners', description)
-                if match:
-                    listeners_str = match.group(1)
-                    # Convert K/M/B to actual numbers
-                    multiplier = {
-                        'K': 1000,
-                        'M': 1000000,
-                        'B': 1000000000
-                    }
-                    
-                    # Remove commas and get the numeric part
-                    base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
-                    
-                    # Apply multiplier if K/M/B is present
-                    if listeners_str[-1] in multiplier:
-                        monthly_streams = int(base_num * multiplier[listeners_str[-1]])
-                    else:
-                        monthly_streams = int(base_num)
-                    
-                    # Get artist name
-                    meta_title = web.find('meta', {'property': 'og:title'})
-                    artist_name = meta_title.get('content', '').split('|')[0].strip() if meta_title else None
-                    
-                    if monthly_streams > 0:
-                        return artist_name, monthly_streams
+            print(f"Attempt {attempt + 1} for {artist_code}")
 
-            # Method 2: Try finding all divs and look for listener count pattern
-            div_content = [div.get_text() for div in web.find_all('div')]
-            h1_content = [h1.get_text() for h1 in web.find_all('h1')]
-            artist_name = h1_content[0] if h1_content else None
+            # Add some delay between requests
+            if attempt > 0:
+                time.sleep(2 + (attempt * 1))  # Progressive delay
 
-            # Look for monthly listeners in div content
-            for text in div_content:
-                # Pattern 1: Direct number with "monthly listeners"
-                match = re.search(r'(\d+(?:,\d+)*) monthly listeners', text)
-                if match:
-                    try:
-                        monthly_streams = int(match.group(1).replace(',', ''))
-                        if monthly_streams > 0:
-                            return artist_name, monthly_streams
-                    except ValueError:
-                        continue
+            response = requests.get(cloud_function_url, timeout=30)
 
-                # Pattern 2: Number with K/M/B suffix
-                match = re.search(r'(\d+(?:\.\d+)?[KMB]) monthly listeners', text)
-                if match:
-                    try:
-                        num_str = match.group(1)
-                        multiplier = {'K': 1000, 'M': 1000000, 'B': 1000000000}
-                        base = float(num_str[:-1])
-                        suffix = num_str[-1]
-                        monthly_streams = int(base * multiplier[suffix])
-                        if monthly_streams > 0:
-                            return artist_name, monthly_streams
-                    except (ValueError, KeyError):
-                        continue
+            # Check if the request was successful
+            if response.status_code != 200:
+                print(f"HTTP {response.status_code} error for {artist_code}: {response.text}")
+                continue
 
-            # Method 3: Look for structured data in script tags
-            for script in web.find_all('script', type='application/ld+json'):
-                try:
-                    data = json.loads(script.string)
-                    if isinstance(data, dict) and 'description' in data:
-                        match = re.search(r'(\d+(?:,\d+)?[KMB]?) monthly listeners', data['description'])
-                        if match:
-                            listeners_str = match.group(1)
-                            base_num = float(listeners_str.replace(',', '').rstrip('KMB'))
-                            if listeners_str[-1] in multiplier:
-                                monthly_streams = int(base_num * multiplier[listeners_str[-1]])
-                            else:
-                                monthly_streams = int(base_num)
-                            if monthly_streams > 0:
-                                return artist_name, monthly_streams
-                except (json.JSONDecodeError, AttributeError):
-                    continue
+            data = response.json()
 
-            logging.info(f"Attempt {attempt + 1}: Could not find monthly listeners for {artist_code}")
-            time.sleep(2)  # Wait before retrying
-            
+            # Check if we got an error response
+            if "error" in data:
+                print(f"Error from Cloud Function for {artist_code}: {data['error']}")
+                continue
+
+            # Extract artist name and monthly streams
+            artist_name = data.get("artistName")
+            monthly_streams = data.get("monthlyStreams", 0)
+
+            if monthly_streams > 0:
+                print(
+                    f"Successfully found {monthly_streams} monthly listeners for {artist_name}"
+                )
+                return artist_name, monthly_streams
+            else:
+                print(f"Cloud Function returned 0 monthly listeners for {artist_code}")
+                continue
+
+        except requests.exceptions.RequestException as e:
+            print(f"Request error for {artist_code}: {str(e)}")
+            time.sleep(2)
+        except json.JSONDecodeError as e:
+            print(f"JSON decode error for {artist_code}: {str(e)}")
+            time.sleep(2)
         except Exception as e:
-            logging.error(f"Error getting monthly listeners for {artist_code}: {str(e)}")
-            time.sleep(2)  # Wait before retrying
-    
-    logging.error(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
+            print(f"Unexpected error for {artist_code}: {str(e)}")
+            time.sleep(2)
+
+    print(f"Failed to get monthly listeners for {artist_code} after {retries} attempts")
     return None, None
 
 def update_weeks_retained(df):
@@ -244,6 +325,17 @@ def calculate_percentage_difference_with_loyalty(df, team_data):
             else:
                 adjusted_diff = percentage_diff
                 print(f"DEBUG: No bonus applied (negative or zero percentage diff)")
+
+            # I Saw My Artist Perform bonus: 100% if positive, cap at 0 if negative
+            saw_live_ids = set(team_data.get("sawLiveArtistIds") or [])
+            artist_id_normalized = extract_artist_id(artist_code)
+            if artist_id_normalized in saw_live_ids:
+                if adjusted_diff > 0:
+                    adjusted_diff *= 2
+                    print(f"DEBUG: Applying 100% saw-live bonus to {artist_code}")
+                else:
+                    adjusted_diff = 0
+                    print(f"DEBUG: Saw-live cap at 0 for {artist_code} (was non-positive)")
             
             print(f"DEBUG: Final adjusted diff: {adjusted_diff:.2f}%")
             adjusted_diffs.append(adjusted_diff)
@@ -257,6 +349,12 @@ def update_firestore():
     print("Running updates in TEST environment")
     if db.project != 'fantasy-musicpleague-test':
         raise Exception("WARNING: This script should only run in the test environment!")
+
+    # Refresh "saw live" from Google Sheet (uses DEV_CRED_PATH; share sheet with dev SA client_email to test)
+    try:
+        refresh_saw_live_from_sheet(db, credentials_path=DEV_CRED_PATH)
+    except Exception as e:
+        print(f"Saw-live sheet refresh failed (continuing with scores): {e}")
 
     teams_ref = db.collection('teams')
     standings_ref = db.collection('standings')
@@ -372,8 +470,8 @@ def update_firestore():
         print(f"\nDebug info for league {league_id}:")
         print(f"Number of teams: {len(standings)}")
         print("Top 3 teams:")
-        for i, team in enumerate(standings[:3]):
-            print(f"{i+1}. {team['teamname']}: {team['score']:.2f}")
+        for rank, (_, row) in enumerate(standings_df.head(3).iterrows(), start=1):
+            print(f"{rank}. {row['teamname']}: {row['score']:.2f}")
         print(f"Historical data points: {len(standings_data['history'])}")
 
     print("Firestore update complete with standings per league")

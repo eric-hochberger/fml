@@ -154,10 +154,10 @@
 
       <!-- Add these fields after the league type/password fields and before the listener thresholds -->
       <label for="startDate">League Start Date</label>
-      <input type="date" id="startDate" required min="2024-01-01" />
+      <input type="date" id="startDate" required />
 
       <label for="endDate">League End Date</label>
-      <input type="date" id="endDate" required min="2024-01-01" />
+      <input type="date" id="endDate" required />
 
       <!-- Slot Thresholds -->
       <label for="slot1"
@@ -215,6 +215,22 @@
       const createLeagueForm = document.getElementById("createLeagueForm");
       const errorMessageDiv = document.getElementById("errorMessage");
       const successMessageDiv = document.getElementById("successMessage");
+      const startDateInput = document.getElementById("startDate");
+      const endDateInput = document.getElementById("endDate");
+
+      // Set date inputs to current date minimum
+      function setDateInputMins() {
+        const today = new Date().toISOString().split("T")[0];
+        startDateInput.min = today;
+        endDateInput.min = startDateInput.value || today;
+      }
+      setDateInputMins();
+      startDateInput.addEventListener("change", () => {
+        endDateInput.min = startDateInput.value;
+        if (endDateInput.value && endDateInput.value < startDateInput.value) {
+          endDateInput.value = "";
+        }
+      });
 
       leagueTypeSelect.addEventListener("change", function () {
         if (this.value === "public") {
@@ -297,11 +313,15 @@
           return;
         }
 
-        // Validate thresholds are numbers
+        // Validate thresholds are numbers and at least 500
         for (let i = 1; i <= 5; i++) {
           const threshold = listenerThresholds[`slot_${i}`];
           if (isNaN(threshold) || threshold <= 0) {
             errorMessageDiv.textContent = `Please enter a valid number for Slot ${i}.`;
+            return;
+          }
+          if (threshold < 500) {
+            errorMessageDiv.textContent = `Slot ${i} must be at least 500 listeners (artists need at least 500 monthly listeners to qualify).`;
             return;
           }
         }

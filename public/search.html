@@ -481,7 +481,10 @@
         <h2 id="leagueHeader" class="league-header"></h2>
       </div>
       <div class="how-to-play-notice">
-        <p>For guidance on how to play, please check out <a href="faq.html">How to Play</a>.</p>
+        <p>
+          For guidance on how to play, please check out
+          <a href="faq.html">How to Play</a>.
+        </p>
       </div>
       <input
         type="text"
@@ -580,6 +583,7 @@
                 const savedState = localStorage.getItem("spotify_auth_state");
 
                 if (code && state && state === savedState) {
+                  restoreRosterDraft();
                   handleSpotifyCallback(code);
                 } else {
                   localStorage.removeItem("showSpotifyLoading");
@@ -600,6 +604,23 @@
             );
             if (loadingMessage) {
               loadingMessage.style.display = "block";
+            }
+            // Persist current roster so it survives the redirect to Spotify and back
+            if (leagueId && slots && typeof getArtistInfo === "function") {
+              const draft = { leagueId, slots: {} };
+              for (let i = 1; i <= 5; i++) {
+                const slotId = `slot${i}`;
+                if (slots[slotId]) {
+                  const info = getArtistInfo(slots[slotId]);
+                  if (info && info.name) {
+                    draft.slots[slotId] = info;
+                  }
+                }
+              }
+              sessionStorage.setItem(
+                "search_roster_draft",
+                JSON.stringify(draft),
+              );
             }
             localStorage.setItem("showSpotifyLoading", "true");
             localStorage.removeItem("spotify_access_token");
@@ -841,7 +862,6 @@
 
         setupRosterSlots();
       }
-
 
       function setupRosterSlots() {
         const rosterContainer = document.getElementById("rosterSlots");
@@ -1164,6 +1184,32 @@
         };
       }
 
+      function restoreRosterDraft() {
+        try {
+          const raw = sessionStorage.getItem("search_roster_draft");
+          if (!raw) return;
+          const draft = JSON.parse(raw);
+          if (draft.leagueId !== leagueId || !draft.slots) return;
+          for (let i = 1; i <= 5; i++) {
+            const slotId = `slot${i}`;
+            const info = draft.slots[slotId];
+            if (info && info.name && slots[slotId]) {
+              fillRosterSlot(
+                slots[slotId],
+                info.name,
+                info.imageUrl || "",
+                info.link || "",
+                info.monthly_listeners || 0,
+                info.artistId || "",
+              );
+            }
+          }
+          sessionStorage.removeItem("search_roster_draft");
+        } catch (e) {
+          console.warn("Could not restore roster draft:", e);
+        }
+      }
+
       function showError(message) {
         errorMessage.textContent = message;
         errorMessage.style.display = "block";
@@ -1208,6 +1254,49 @@
 
           if (!allSlotsFilled) {
             showError("Please fill all the slots before submitting your team");
+            hideSubmitLoadingMessage();
+            return;
+          }
+
+          // Check for duplicate artists by name and by ID/link
+          const artistNames = new Set();
+          const artistIds = new Set();
+          const artistLinks = new Set();
+          const duplicates = [];
+
+          for (let i = 1; i <= 5; i++) {
+            const slotId = `slot${i}`;
+            const artistInfo = getArtistInfo(slots[slotId]);
+
+            // Check for duplicate names
+            if (artistNames.has(artistInfo.name)) {
+              duplicates.push(`Duplicate artist name: "${artistInfo.name}"`);
+            } else {
+              artistNames.add(artistInfo.name);
+            }
+
+            // Check for duplicate artist IDs
+            if (artistInfo.artistId && artistIds.has(artistInfo.artistId)) {
+              duplicates.push(`Duplicate artist ID: "${artistInfo.name}"`);
+            } else if (artistInfo.artistId) {
+              artistIds.add(artistInfo.artistId);
+            }
+
+            // Check for duplicate links (most reliable)
+            if (artistInfo.link && artistLinks.has(artistInfo.link)) {
+              duplicates.push(`Duplicate artist: "${artistInfo.name}"`);
+            } else if (artistInfo.link) {
+              artistLinks.add(artistInfo.link);
+            }
+          }
+
+          if (duplicates.length > 0) {
+            showError(
+              "Duplicate artists detected:\n" +
+                duplicates.join("\n") +
+                "\n\nPlease ensure all artists are unique.",
+            );
+            hideSubmitLoadingMessage();
             return;
           }
 

@@ -335,7 +335,7 @@ exports.validate = functions.https.onRequest((req, res) => {
         continue;
       }
 
-      // Check minimum number of releases (must have more than 1)
+      // Check minimum number of songs (must have more than 1)
       try {
         // Get Spotify access token
         const tokenResponse = await axios.get(
@@ -357,15 +357,19 @@ exports.validate = functions.https.onRequest((req, res) => {
           },
         );
 
-        const totalReleases = albumsResponse.data.total;
-        console.log(`Artist ${artistName} has ${totalReleases} total releases`);
+        // Count total tracks across all releases
+        const totalTracks = albumsResponse.data.items.reduce(
+          (sum, album) => sum + (album.total_tracks || 0),
+          0,
+        );
+        console.log(`Artist ${artistName} has ${totalTracks} total tracks`);
 
-        if (totalReleases <= 1) {
+        if (totalTracks <= 1) {
           validationIssues.push({
             email,
             message:
-              `The artist ${artistName} has only ${totalReleases} release(s). ` +
-              `Artists must have more than 1 release to be eligible.`,
+              `The artist ${artistName} has only ${totalTracks} song(s). ` +
+              `Artists must have more than 1 song to be eligible.`,
           });
           continue;
         }
@@ -650,7 +654,7 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
       });
     }
 
-    // Check minimum number of releases (must have more than 1)
+    // Check minimum number of songs (must have more than 1)
     try {
       // Get Spotify access token
       const tokenResponse = await axios.get(
@@ -672,14 +676,18 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
         },
       );
 
-      const totalReleases = albumsResponse.data.total;
-      console.log(`Artist ${artistName} has ${totalReleases} total releases`);
+      // Count total tracks across all releases
+      const totalTracks = albumsResponse.data.items.reduce(
+        (sum, album) => sum + (album.total_tracks || 0),
+        0,
+      );
+      console.log(`Artist ${artistName} has ${totalTracks} total tracks`);
 
-      if (totalReleases <= 1) {
+      if (totalTracks <= 1) {
         validationIssues.push({
           message:
-            `The artist ${artistName} has only ${totalReleases} release(s). ` +
-            `Artists must have more than 1 release to be eligible.`,
+            `The artist ${artistName} has only ${totalTracks} song(s). ` +
+            `Artists must have more than 1 song to be eligible.`,
         });
       }
     } catch (error) {
@@ -699,7 +707,8 @@ exports.validateAddDrop = functions.https.onRequest((req, res) => {
     } else {
       // Update the Firestore document
       teamData.artists[dropArtistCode].active_flg = 0;
-      teamData.artists[addArtistLink] = {
+      // Use artistCode as the key (not addArtistLink) to match how artists are stored elsewhere
+      teamData.artists[artistCode] = {
         name: artistName,
         imageUrl: addArtistImageUrl,
         link: addArtistLink,
@@ -861,6 +870,47 @@ exports.createLeague = functions.https.onRequest((req, res) => {
         return;
       }
 
+      // Validate start and end dates
+      const { startDate, endDate } = req.body;
+      if (!startDate || !endDate) {
+        res.status(400).json({
+          status: "error",
+          message: "Start date and end date are required.",
+        });
+        return;
+      }
+      const today = new Date().toISOString().split("T")[0];
+      if (startDate < today) {
+        res.status(400).json({
+          status: "error",
+          message: "Start date cannot be in the past.",
+        });
+        return;
+      }
+      if (endDate <= startDate) {
+        res.status(400).json({
+          status: "error",
+          message: "End date must be after start date.",
+        });
+        return;
+      }
+
+      // Validate listener thresholds are at least 500 (matches artist minimum)
+      const MIN_LISTENERS = 500;
+      const slotKeys = ["slot_1", "slot_2", "slot_3", "slot_4", "slot_5"];
+      for (const key of slotKeys) {
+        const value = listenerThresholds[key];
+        const num = typeof value === "number" ? value : parseInt(value, 10);
+        if (isNaN(num) || num < MIN_LISTENERS) {
+          const slotLabel = key.replace("_", " ");
+          res.status(400).json({
+            status: "error",
+            message: `Each slot threshold must be at least ${MIN_LISTENERS} listeners. ${slotLabel} has an invalid value.`,
+          });
+          return;
+        }
+      }
+
       // Check if league name already exists
       const existingLeagueSnapshot = await db
         .collection("leagues")
@@ -978,8 +1028,14 @@ exports.joinLeague = functions.https.onRequest((req, res) => {
 
       const leagueData = leagueDoc.data();
 
-      // Check if user is already a member
-      if (leagueData.members && leagueData.members.includes(email)) {
+      const isMember = leagueData.members && leagueData.members.includes(email);
+      const isPending =
+        leagueData.pending_members &&
+        leagueData.pending_members.includes(email);
+
+      // Block only if fully joined (member and not pending). If pending—including
+      // creator who’s in both members and pending_members—let them through to complete roster.
+      if (isMember && !isPending) {
         res.status(400).json({
           status: "error",
           message: "You are already a member of this league.",
@@ -987,16 +1043,11 @@ exports.joinLeague = functions.https.onRequest((req, res) => {
         return;
       }
 
-      // Check if user is already a pending member
-      if (
-        leagueData.pending_members &&
-        leagueData.pending_members.includes(email)
-      ) {
-        res.status(400).json({
-          status: "error",
-          message:
-            "You have already initiated joining this league. " +
-            "Please submit your roster to complete the process.",
+      // Already pending (or creator in both): return success so they can go to search and finish roster
+      if (isPending) {
+        res.json({
+          status: "success",
+          message: "Please submit your roster to complete joining the league.",
         });
         return;
       }
@@ -1062,8 +1113,15 @@ exports.getLeagues = functions.https.onRequest((req, res) => {
       for (const doc of snapshot.docs) {
         const leagueData = doc.data();
 
-        // Skip if user is already a member
-        if (leagueData.members && leagueData.members.includes(email)) {
+        // Skip only if user is a full member who has completed the flow (not pending).
+        // Include if: not in members, OR in pending_members (e.g. creator who left before
+        // submitting roster is in both members and pending_members and should still see it).
+        const isMember =
+          leagueData.members && leagueData.members.includes(email);
+        const isPending =
+          leagueData.pending_members &&
+          leagueData.pending_members.includes(email);
+        if (isMember && !isPending) {
           continue;
         }
 

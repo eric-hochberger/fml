@@ -10,6 +10,13 @@ import logging
 import os
 import json
 
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+
+# Saw-live sheet (share with service account client_email, enable Sheets API in project)
+SPREADSHEET_ID = "1TvNsjSmj1fj6PxK5DPP8Q6OHYJ1pb5YwGhGVWFhsrWA"
+SHEET_GID = 366933681
+
 # Set up logging
 logging.basicConfig(filename='listener_errors.log', level=logging.INFO)
 
@@ -31,6 +38,120 @@ def extract_artist_id(artist_identifier):
         match = re.search(r'artist/([a-zA-Z0-9]+)', artist_identifier)
         return match.group(1) if match else artist_identifier
     return artist_identifier
+
+
+def _extract_artist_id_from_url(url):
+    """Parse Spotify artist ID from a URL string; returns None if not found."""
+    if not url or not isinstance(url, str):
+        return None
+    url = url.strip()
+    match = re.search(r"artist/([a-zA-Z0-9]+)", url)
+    return match.group(1) if match else None
+
+
+def _fetch_saw_live_sheet_rows(credentials_dict):
+    """Read saw-live sheet via Google Sheets API; return list of dicts (header -> cell value)."""
+    creds = service_account.Credentials.from_service_account_info(
+        credentials_dict,
+        scopes=["https://www.googleapis.com/auth/spreadsheets.readonly"],
+    )
+    service = build("sheets", "v4", credentials=creds)
+    meta = (
+        service.spreadsheets()
+        .get(spreadsheetId=SPREADSHEET_ID, fields="sheets(properties(sheetId,title))")
+        .execute()
+    )
+    sheet_title = None
+    for sheet in meta.get("sheets", []):
+        props = sheet.get("properties", {})
+        if props.get("sheetId") == SHEET_GID:
+            sheet_title = props.get("title", "Sheet1")
+            break
+    if not sheet_title:
+        raise RuntimeError(f"Sheet with gid={SHEET_GID} not found in spreadsheet")
+    range_str = f"'{sheet_title}'!A:Z"
+    result = (
+        service.spreadsheets()
+        .values()
+        .get(spreadsheetId=SPREADSHEET_ID, range=range_str)
+        .execute()
+    )
+    rows = result.get("values", [])
+    if not rows:
+        return []
+    headers = [str(h).strip() for h in rows[0]]
+    out = []
+    for r in rows[1:]:
+        padded = list(r) + [""] * (len(headers) - len(r))
+        out.append(dict(zip(headers, padded)))
+    return out
+
+
+def _collect_email_artist_pairs(rows):
+    """From sheet rows, find (email, artist_id) pairs. Column detection by header keywords."""
+    if not rows:
+        return set()
+    keys = list(rows[0].keys()) if rows[0] else []
+    spotify_key = email_key = None
+    for k in keys:
+        k_lower = (k or "").lower()
+        if "spotify" in k_lower and "artist" in k_lower:
+            spotify_key = k
+        if "email" in k_lower and "address" in k_lower:
+            email_key = k
+    if not spotify_key or not email_key:
+        spotify_key = keys[2] if len(keys) > 2 else None
+        email_key = keys[-1] if keys else None
+    pairs = set()
+    for row in rows:
+        link = row.get(spotify_key, "").strip() if spotify_key else ""
+        email = row.get(email_key, "").strip().lower() if email_key else ""
+        aid = _extract_artist_id_from_url(link)
+        if email and aid:
+            pairs.add((email, aid))
+    return pairs
+
+
+def _roster_artist_ids(artists_dict):
+    """Normalize team artist keys (URL or ID) to a set of artist IDs."""
+    ids = set()
+    for key in artists_dict:
+        aid = _extract_artist_id_from_url(key) if (key and str(key).startswith("http")) else key
+        if aid:
+            ids.add(aid)
+    return ids
+
+
+def refresh_saw_live_from_sheet(db, credentials_dict=None):
+    """Fetch saw-live sheet, compute (email, artist_id) pairs, update each team's sawLiveArtistIds."""
+    if not credentials_dict:
+        print("Skipping saw-live sheet refresh (no credentials).")
+        return
+    print("Fetching sheet via Google Sheets API...")
+    rows = _fetch_saw_live_sheet_rows(credentials_dict)
+    if not rows:
+        print("No rows in sheet; skipping saw-live sync.")
+        return
+    pairs = _collect_email_artist_pairs(rows)
+    print(f"Found {len(pairs)} (email, artist_id) submissions")
+    teams_ref = db.collection("teams")
+    all_teams = list(teams_ref.stream())
+    updates = 0
+    for doc in all_teams:
+        team_data = doc.to_dict()
+        user_email = (team_data.get("userEmail") or "").strip().lower()
+        if not user_email:
+            continue
+        artists = team_data.get("artists") or {}
+        roster_ids = _roster_artist_ids(artists)
+        saw_live = [aid for (em, aid) in pairs if em == user_email and aid in roster_ids]
+        saw_live_dedup = list(dict.fromkeys(saw_live))
+        if saw_live_dedup != team_data.get("sawLiveArtistIds", []):
+            teams_ref.document(doc.id).update({"sawLiveArtistIds": saw_live_dedup})
+            print(f"Updated team {doc.id} ({team_data.get('teamname', '')}): sawLiveArtistIds = {saw_live_dedup}")
+            updates += 1
+    print(f"Saw-live sync done. Updated {updates} team(s).")
+
 
 def get_monthly_listeners(artist_code, retries=3):
     # Clean the artist code first
@@ -162,6 +283,17 @@ def calculate_percentage_difference_with_loyalty(df, team_data):
                     adjusted_diff *= 1.4
             else:
                 adjusted_diff = percentage_diff
+
+            # I Saw My Artist Perform bonus: 100% if positive, cap at 0 if negative
+            saw_live_ids = set(team_data.get("sawLiveArtistIds") or [])
+            artist_id_normalized = extract_artist_id(artist_code)
+            if artist_id_normalized in saw_live_ids:
+                if adjusted_diff > 0:
+                    adjusted_diff *= 2
+                    print(f"Applying 100% saw-live bonus to {artist_code}")
+                else:
+                    adjusted_diff = 0
+                    print(f"Saw-live cap at 0 for {artist_code} (was non-positive)")
             
             adjusted_diffs.append(adjusted_diff)
     
@@ -169,16 +301,24 @@ def calculate_percentage_difference_with_loyalty(df, team_data):
     return np.nanmean(adjusted_diffs) if adjusted_diffs else 0
 
 def update_firestore():
+    # Refresh "saw live" from Google Sheet before computing standings
+    try:
+        cred_json = os.environ.get('FIREBASE_SERVICE_ACCOUNT')
+        if cred_json:
+            refresh_saw_live_from_sheet(db, credentials_dict=json.loads(cred_json))
+        else:
+            print("Skipping saw-live sheet refresh (no FIREBASE_SERVICE_ACCOUNT).")
+    except Exception as e:
+        print(f"Saw-live sheet refresh failed (continuing with scores): {e}")
+
     teams_ref = db.collection('teams')
     standings_ref = db.collection('standings')
-    
+
     # Add retry logic and timeout handling
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            # Use get() instead of stream() for better timeout control
-            # Add timeout parameter to the get() call
-            docs = teams_ref.get(timeout=300)  # 5 minute timeout
+            docs = teams_ref.get()
             break
         except Exception as e:
             if attempt == max_retries - 1:
@@ -250,8 +390,12 @@ def update_firestore():
                 artists_data = [df.reindex(columns=list(all_columns)) for df in artists_data]
                 df = pd.concat(artists_data, ignore_index=True)
                 df = update_weeks_retained(df)
-                leagues[team_league_id][team_data['teamname']] = (df, team_data)  # Store both df and team_data
-            
+                # Key by doc.id so duplicate team names in same league don't overwrite
+                leagues[team_league_id][doc.id] = (df, team_data)
+            else:
+                # Team has no artists (or none with numeric data); include in standings with score 0
+                leagues[team_league_id][doc.id] = (pd.DataFrame(), team_data)
+
             # Update team data in Firestore
             teams_ref.document(doc.id).set(team_data)
         
@@ -262,9 +406,9 @@ def update_firestore():
     # Calculate standings per league with historical tracking
     for league_id, league_teams in leagues.items():
         standings = []
-        for teamname, (df, team_data) in league_teams.items():
+        for _team_id, (df, team_data) in league_teams.items():
             score = calculate_percentage_difference_with_loyalty(df, team_data)
-            standings.append({'teamname': teamname, 'score': score})
+            standings.append({'teamname': team_data['teamname'], 'score': score})
 
         standings_df = pd.DataFrame(standings)
         standings_df = standings_df.sort_values(by='score', ascending=False).reset_index(drop=True)
