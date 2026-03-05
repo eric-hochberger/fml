@@ -2,3 +2,5 @@ INFO:root:Attempt 1: Could not find monthly listeners for 1y6tVxTqgNfqxTayfohSKJ
 INFO:googleapiclient.discovery_cache:file_cache is only supported with oauth2client<4.0.0
 WARNING:googleapiclient.http:Encountered 403 Forbidden with reason "PERMISSION_DENIED"
 INFO:googleapiclient.discovery_cache:file_cache is only supported with oauth2client<4.0.0
+INFO:googleapiclient.discovery_cache:file_cache is only supported with oauth2client<4.0.0
+INFO:googleapiclient.discovery_cache:file_cache is only supported with oauth2client<4.0.0

@@ -1540,7 +1540,17 @@
           // Store the token
           localStorage.setItem("spotify_access_token", tokenData.access_token);
 
-          // Store user's top Spotify artists
+          const teamId = localStorage.getItem("selectedTeamId");
+          if (teamId && tokenData.refresh_token) {
+            try {
+              await storeSpotifyTokensOnTeam(teamId, tokenData);
+              console.log("Spotify tokens saved to team for weekly updates");
+            } catch (e) {
+              console.warn("Could not save Spotify tokens to team:", e);
+            }
+          }
+
+          // Store user's top Spotify artists (for recommendations / spotify_user_data)
           console.log("Storing user's top Spotify artists...");
           try {
             const artistsResult = await storeSpotifyTopArtists(
@@ -1551,6 +1561,14 @@
           } catch (artistError) {
             console.error("Error storing top artists:", artistError);
             // Don't throw - we still want to show recommendations even if saving fails
+          }
+
+          if (teamId) {
+            try {
+              await storeSpotifyTopArtistsOnTeam(teamId, tokenData.access_token);
+            } catch (e) {
+              console.warn("Could not save top artists to team:", e);
+            }
           }
 
           // --- Use the helper function here ---
@@ -1578,6 +1596,59 @@
           if (loadingMessage) {
             loadingMessage.style.display = "none";
           }
+        }
+      }
+
+      async function storeSpotifyTokensOnTeam(teamId, tokenData) {
+        const expiresAt = new Date(
+          Date.now() + (tokenData.expires_in || 3600) * 1000,
+        ).toISOString();
+        await updateDoc(doc(db, "teams", teamId), {
+          spotifyTokens: {
+            accessToken: tokenData.access_token,
+            refreshToken: tokenData.refresh_token,
+            expiresAt,
+            lastUpdated: serverTimestamp(),
+          },
+        });
+      }
+
+      async function storeSpotifyTopArtistsOnTeam(teamId, accessToken) {
+        const [mediumTerm, shortTerm] = await Promise.all([
+          fetch(
+            "https://api.spotify.com/v1/me/top/artists?time_range=medium_term&limit=50",
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          ),
+          fetch(
+            "https://api.spotify.com/v1/me/top/artists?time_range=short_term&limit=50",
+            { headers: { Authorization: `Bearer ${accessToken}` } },
+          ),
+        ]);
+        const mediumData = await mediumTerm.json();
+        const shortData = await shortTerm.json();
+        const allItems = (mediumData.items || []).concat(shortData.items || []);
+        const seen = new Set();
+        const uniqueArtists = allItems.filter((a) => {
+          if (seen.has(a.id)) return false;
+          seen.add(a.id);
+          return true;
+        });
+        const artists = uniqueArtists.map((a) => ({
+          id: a.id,
+          name: a.name,
+          images: a.images,
+        }));
+        const res = await fetch(
+          "https://us-central1-fantasy-music-league-257a3.cloudfunctions.net/storeSpotifyTopArtists",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ teamId, artists }),
+          },
+        );
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}));
+          throw new Error(err.error || res.statusText);
         }
       }
 

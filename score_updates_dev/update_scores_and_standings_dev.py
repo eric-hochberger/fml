@@ -345,6 +345,72 @@ def calculate_percentage_difference_with_loyalty(df, team_data):
     print(f"\nDEBUG: Final team score: {final_score:.2f}%")
     return final_score
 
+
+def calculate_score_with_breakdown(df, team_data):
+    """Return (score, breakdown list) for lastScoreBreakdown on team doc. Same logic as calculate_percentage_difference_with_loyalty without DEBUG prints."""
+    df = update_weeks_retained(df)
+    adjusted_diffs = []
+    breakdown = []
+
+    artists_active_in_top_5 = set()
+    if 'spotifyTopArtistHistory' in team_data:
+        for spotify_date, top_artists in team_data['spotifyTopArtistHistory'].items():
+            top_5_ids = {artist['id'] for artist in top_artists[:5]}
+            for artist_code in top_5_ids:
+                if artist_code in team_data.get('artists', {}):
+                    artist_info = team_data['artists'][artist_code]
+                    if artist_info.get('active_flg', 0) == 1 and spotify_date in artist_info:
+                        artists_active_in_top_5.add(artist_code)
+
+    saw_live_ids = set(team_data.get("sawLiveArtistIds") or [])
+    inactive_artists = []
+
+    for artist_code in df['artist_code'].unique():
+        artist_df = df[df['artist_code'] == artist_code]
+        listener_dates = artist_df.filter(regex=r'\d{4}-\d{2}-\d{2}').columns
+        relevant_dates = listener_dates[artist_df[listener_dates].notnull().any()]
+        name = (team_data.get('artists') or {}).get(artist_code, {}).get('name', artist_code)
+
+        if relevant_dates.empty:
+            inactive_artists.append({'name': name})
+            continue
+
+        min_date, max_date = relevant_dates.min(), relevant_dates.max()
+        min_listeners = artist_df[min_date].values[0]
+        max_listeners = artist_df[max_date].values[0]
+        if min_listeners and max_listeners and min_listeners != 0:
+            percentage_diff = (max_listeners - min_listeners) / min_listeners * 100
+        else:
+            percentage_diff = 0
+
+        weeks_retained = artist_df['weeks_retained'].values[0] if 'weeks_retained' in artist_df else 0
+        loyalty_multiplier = 1 + 0.05 * weeks_retained
+
+        if percentage_diff > 0:
+            adjusted_diff = percentage_diff * loyalty_multiplier
+            if artist_code in artists_active_in_top_5:
+                adjusted_diff *= 1.4
+        else:
+            adjusted_diff = percentage_diff
+
+        artist_id_norm = extract_artist_id(artist_code)
+        saw_live = artist_id_norm in saw_live_ids
+        if saw_live:
+            adjusted_diff = adjusted_diff * 2 if adjusted_diff > 0 else 0
+        top5 = artist_code in artists_active_in_top_5
+
+        adjusted_diffs.append(adjusted_diff)
+        breakdown.append({
+            'name': name,
+            'contribution': round(float(adjusted_diff), 2),
+            'sawLive': saw_live,
+            'top5': top5,
+        })
+
+    score = np.nanmean(adjusted_diffs) if adjusted_diffs else 0
+    return score, breakdown, inactive_artists
+
+
 def update_firestore():
     print("Running updates in TEST environment")
     if db.project != 'fantasy-musicpleague-test':
@@ -425,7 +491,7 @@ def update_firestore():
             artists_data = [df.reindex(columns=list(all_columns)) for df in artists_data]
             df = pd.concat(artists_data, ignore_index=True)
             df = update_weeks_retained(df)
-            leagues[team_league_id][team_data['teamname']] = (df, team_data)  # Store both df and team_data
+            leagues[team_league_id][doc.id] = (df, team_data)
         
         # Update team data in Firestore
         teams_ref.document(doc.id).set(team_data)
@@ -433,9 +499,20 @@ def update_firestore():
     # Calculate standings per league with historical tracking
     for league_id, league_teams in leagues.items():
         standings = []
-        for teamname, (df, team_data) in league_teams.items():
-            score = calculate_percentage_difference_with_loyalty(df, team_data)
-            standings.append({'teamname': teamname, 'score': score})
+        for _team_id, (df, team_data) in league_teams.items():
+            score, breakdown, inactive_artists = calculate_score_with_breakdown(df, team_data)
+            standings.append({'teamname': team_data['teamname'], 'score': score})
+            try:
+                payload = {
+                    'updatedAt': current_date,
+                    'score': round(float(score), 2),
+                    'artists': breakdown,
+                }
+                if inactive_artists:
+                    payload['inactiveArtists'] = inactive_artists
+                teams_ref.document(_team_id).update({'lastScoreBreakdown': payload})
+            except Exception as e:
+                print(f"Warning: could not save lastScoreBreakdown for {_team_id}: {e}")
 
         standings_df = pd.DataFrame(standings)
         standings_df = standings_df.sort_values(by='score', ascending=False).reset_index(drop=True)

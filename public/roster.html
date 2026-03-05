@@ -149,6 +149,55 @@
         white-space: pre-wrap;
         word-wrap: break-word;
       }
+      .roster-slot.saw-live {
+        border: 2px solid #2e7d32;
+        background: linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%);
+        box-shadow: 0 0 8px rgba(46, 125, 50, 0.3);
+      }
+      .saw-live-badge {
+        font-size: 10px;
+        font-weight: bold;
+        color: #1b5e20;
+        background: #a5d6a7;
+        padding: 2px 6px;
+        border-radius: 4px;
+        margin-top: 4px;
+      }
+      .score-breakdown-btn {
+        margin-left: 10px;
+        padding: 6px 12px;
+        font-size: 13px;
+        background: #1a73e8;
+        color: white;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      .score-breakdown-btn:hover { background: #1557b0; }
+      .modal-overlay {
+        display: none;
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 1000;
+        align-items: center;
+        justify-content: center;
+      }
+      .modal-overlay.show { display: flex; }
+      .modal-content {
+        background: white;
+        padding: 20px;
+        border-radius: 8px;
+        max-width: 420px;
+        width: 90%;
+        max-height: 85vh;
+        overflow-y: auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      }
+      .modal-content h3 { margin-top: 0; }
+      .modal-content .modal-close { float: right; cursor: pointer; font-size: 20px; }
+      .modal-content table { width: 100%; margin-top: 10px; }
+      .modal-content th, .modal-content td { padding: 6px 8px; text-align: left; }
       .loading-message {
         display: none;
         color: #666;
@@ -439,6 +488,9 @@
       </div>
       <div id="roster" class="roster"></div>
 
+      <p style="text-align: center; margin: 6px 0 16px 0;">
+        <button type="button" id="scoreBreakdownBtn" class="score-breakdown-btn" style="display: none;">How is my score calculated?</button>
+      </p>
       <h2>Team Standings</h2>
       <table>
         <thead>
@@ -451,6 +503,13 @@
           <!-- Standings will be populated here -->
         </tbody>
       </table>
+      <div id="scoreBreakdownModal" class="modal-overlay">
+        <div class="modal-content">
+          <span class="modal-close" id="scoreBreakdownModalClose">&times;</span>
+          <h3>Score breakdown</h3>
+          <div id="scoreBreakdownBody"></div>
+        </div>
+      </div>
 
       <!-- Add/Drop Section -->
       <div class="add-drop-container">
@@ -660,6 +719,39 @@
             leagueNameHeader.textContent = leagueInfo;
 
             displayRoster(teamData);
+            const scoreBtn = document.getElementById("scoreBreakdownBtn");
+            const scoreModal = document.getElementById("scoreBreakdownModal");
+            const scoreBody = document.getElementById("scoreBreakdownBody");
+            if (scoreBtn) scoreBtn.style.display = "inline-block";
+            if (scoreBtn && scoreModal && scoreBody) {
+              scoreBtn.onclick = () => {
+                const b = teamData.lastScoreBreakdown;
+                if (b && b.artists && b.artists.length) {
+                  const bonusLabel = (a) => {
+                    const parts = [];
+                    if (a.sawLive) parts.push("Saw Live");
+                    if (a.top5) parts.push("Spotify Top 5");
+                    return parts.length ? parts.join(", ") : "—";
+                  };
+                  const inactive = (b.inactiveArtists || []);
+                  const inactiveId = "inactiveArtistsList-" + Date.now();
+                  const inactiveSection = inactive.length ? `<p style="margin-top: 14px; font-size: 12px; color: #555;"><button type="button" class="score-breakdown-btn" style="padding: 4px 10px; font-size: 12px;" id="toggleInactiveBtn">${inactive.length} artist(s) not included in score (no listener data)</button></p><div id="${inactiveId}" style="display: none; margin-top: 6px; padding: 8px; background: #f5f5f5; border-radius: 4px; font-size: 13px;">${inactive.map((a) => escapeHtml(a.name)).join(", ")}</div>` : "";
+                  scoreBody.innerHTML = `<p><strong>Total score:</strong> ${b.score}% (as of ${b.updatedAt || ""})</p><p style="font-size: 12px; color: #555;">Bonuses: <strong>Saw Live</strong> = 2× when positive (or zeroes out if score is negative); <strong>Spotify Top 5</strong> = +40% to artist score.</p><table><thead><tr><th>Artist</th><th>Contribution</th><th>Bonuses</th></tr></thead><tbody>${b.artists.map((a) => `<tr><td>${escapeHtml(a.name)}</td><td>${a.contribution}%</td><td>${escapeHtml(bonusLabel(a))}</td></tr>`).join("")}</tbody></table>${inactiveSection}`;
+                  if (inactive.length) {
+                    setTimeout(() => {
+                      const btn = document.getElementById("toggleInactiveBtn");
+                      const div = document.getElementById(inactiveId);
+                      if (btn && div) btn.onclick = () => { div.style.display = div.style.display === "none" ? "block" : "none"; };
+                    }, 0);
+                  }
+                } else {
+                  scoreBody.innerHTML = "<p><strong>No breakdown yet.</strong></p><p style=\"font-size: 13px; color: #555;\">The per-artist breakdown is generated when the daily standings job runs. If you're in a new league or the job hasn't run since you joined, it will appear after the next run. You can still see your total score in Team Standings below.</p>";
+                }
+                scoreModal.classList.add("show");
+              };
+              document.getElementById("scoreBreakdownModalClose").onclick = () => scoreModal.classList.remove("show");
+              scoreModal.onclick = (e) => { if (e.target === scoreModal) scoreModal.classList.remove("show"); };
+            }
           } else {
             leagueNameHeader.textContent = "League information not found.";
           }
@@ -667,6 +759,11 @@
           console.error("Error fetching team data:", error);
           alert("Error fetching team data. Please try again.");
         }
+      }
+      function escapeHtml(text) {
+        const div = document.createElement("div");
+        div.textContent = text;
+        return div.innerHTML;
       }
 
       async function displayRoster(team) {
@@ -726,6 +823,13 @@
 
                   const artistElement = document.createElement("div");
                   artistElement.classList.add("roster-slot");
+                  const sawLiveIds = (team.sawLiveArtistIds || []).map(String);
+                  const artistIdNorm = (artistCode && typeof artistCode === "string" && artistCode.includes("artist/"))
+                    ? artistCode.split("artist/")[1].split("?")[0]
+                    : String(artistCode || "");
+                  if (artistIdNorm && sawLiveIds.includes(artistIdNorm)) {
+                    artistElement.classList.add("saw-live");
+                  }
 
                   // Make the roster slot clickable
                   artistElement.style.cursor = "pointer";
@@ -742,6 +846,12 @@
                   const artistName = document.createElement("div");
                   artistName.textContent = artist.name;
                   artistElement.appendChild(artistName);
+                  if (artistIdNorm && sawLiveIds.includes(artistIdNorm)) {
+                    const badge = document.createElement("div");
+                    badge.className = "saw-live-badge";
+                    badge.textContent = "Saw Live";
+                    artistElement.appendChild(badge);
+                  }
 
                   const artistSlot = document.createElement("div");
                   artistSlot.innerHTML = `<strong>${slotLabels[slotKey]}</strong>`;
