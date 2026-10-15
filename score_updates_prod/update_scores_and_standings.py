@@ -284,16 +284,16 @@ def calculate_percentage_difference_with_loyalty(df, team_data):
             else:
                 adjusted_diff = percentage_diff
 
-            # I Saw My Artist Perform bonus: 100% if positive, cap at 0 if negative
+            # I Saw My Artist Perform: 2× if positive, flip to abs() if negative
             saw_live_ids = set(team_data.get("sawLiveArtistIds") or [])
             artist_id_normalized = extract_artist_id(artist_code)
             if artist_id_normalized in saw_live_ids:
                 if adjusted_diff > 0:
                     adjusted_diff *= 2
-                    print(f"Applying 100% saw-live bonus to {artist_code}")
+                    print(f"Applying 2× saw-live bonus to {artist_code}")
                 else:
-                    adjusted_diff = 0
-                    print(f"Saw-live cap at 0 for {artist_code} (was non-positive)")
+                    adjusted_diff = abs(adjusted_diff)
+                    print(f"Saw-live flipped negative to +{adjusted_diff:.2f}% for {artist_code}")
             
             adjusted_diffs.append(adjusted_diff)
     
@@ -351,7 +351,7 @@ def calculate_score_with_breakdown(df, team_data):
         artist_id_norm = extract_artist_id(artist_code)
         saw_live = artist_id_norm in saw_live_ids
         if saw_live:
-            adjusted_diff = adjusted_diff * 2 if adjusted_diff > 0 else 0
+            adjusted_diff = adjusted_diff * 2 if adjusted_diff > 0 else abs(adjusted_diff)
         top5 = artist_code in artists_active_in_top_5
 
         adjusted_diffs.append(adjusted_diff)
@@ -362,7 +362,11 @@ def calculate_score_with_breakdown(df, team_data):
             'top5': top5,
         })
 
-    score = np.nanmean(adjusted_diffs) if adjusted_diffs else 0
+    if breakdown:
+        top_entries = sorted(breakdown, key=lambda x: x['contribution'], reverse=True)[:5]
+        score = float(np.nanmean([e['contribution'] for e in top_entries]))
+    else:
+        score = 0
     return score, breakdown, inactive_artists
 
 
